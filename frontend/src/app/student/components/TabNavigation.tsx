@@ -1,7 +1,8 @@
 // frontend/src/app/student/components/TabNavigation.tsx
-import { User, Users, GraduationCap } from 'lucide-react';
+import { User, Users, GraduationCap, Folder } from 'lucide-react';
+import { colors } from '../styles/styles';
 
-type TabType = 'students' | 'groups' | 'professors';
+type TabType = 'students' | 'groups' | 'professors' | 'mygroups';
 
 interface TabNavigationProps {
   activeTab: TabType;
@@ -12,7 +13,8 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
   const tabs = [
     { id: 'students' as const, label: 'Students', icon: User },
     { id: 'groups' as const, label: 'Groups', icon: Users },
-    { id: 'professors' as const, label: 'Professors', icon: GraduationCap }
+    { id: 'professors' as const, label: 'Professors', icon: GraduationCap },
+    { id: 'mygroups' as const, label: 'My Groups', icon: Folder }
   ];
 
   return (
@@ -21,7 +23,7 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
         display: 'flex',
         gap: '0.75rem',
         padding: '1.25rem 2rem',
-        borderBottom: '2px solid #e5e7eb',
+        borderBottom: `2px solid ${colors.neutral.gray200}`,
         backgroundColor: 'white',
         boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
       }}
@@ -35,30 +37,28 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
             onClick={() => onTabChange(tab.id)}
             style={{
               padding: '0.75rem 1.5rem',
-              border: isActive ? 'none' : '2px solid #e5e7eb',
+              border: isActive ? 'none' : `2px solid ${colors.neutral.gray200}`,
               borderRadius: '12px',
-              background: isActive
-                ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                : 'white',
-              color: isActive ? 'white' : '#6b7280',
+              background: isActive ? colors.primary.gradient : colors.neutral.white,
+              color: isActive ? 'white' : colors.neutral.gray600,
               fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
               transition: 'all 0.3s ease',
-              boxShadow: isActive ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none'
+              boxShadow: isActive ? `0 4px 12px ${colors.primary.shadow}` : 'none'
             }}
             onMouseEnter={(e) => {
               if (!isActive) {
-                e.currentTarget.style.background = '#f3f4f6';
+                e.currentTarget.style.background = colors.neutral.gray100;
                 e.currentTarget.style.borderColor = '#667eea';
               }
             }}
             onMouseLeave={(e) => {
               if (!isActive) {
-                e.currentTarget.style.background = 'white';
-                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.background = colors.neutral.white;
+                e.currentTarget.style.borderColor = colors.neutral.gray200;
               }
             }}
           >
