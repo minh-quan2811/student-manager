@@ -289,7 +289,7 @@ export const mockProfessors: Professor[] = [
     id: 1,
     name: 'Dr.NGUYỄN THỊ ANH THƯ',
     email: 'thu.nguyen@research.edu',
-    department: 'Electronic and Telecommunication Engineering',
+    department: 'FAST',
     researchAreas: ['Machine Learning', 'AI'],
     availableSlots: 2,
     totalSlots: 5
@@ -298,7 +298,7 @@ export const mockProfessors: Professor[] = [
     id: 2,
     name: 'Dr. NGUYỄN LÊ HÒA',
     email: 'hoa.nguyen@research.edu',
-    department: 'Electronic and Telecommunication Engineering',
+    department: 'FAST',
     researchAreas: ['power electronic', 'Automation'],
     availableSlots: 3,
     totalSlots: 4
@@ -307,7 +307,7 @@ export const mockProfessors: Professor[] = [
     id: 3,
     name: 'Dr.NGUYỄN QUANG NHƯ QUỲNH',
     email: 'quynh.nguyen@research.edu',
-    department: 'Electronic and Telecommunication Engineering',
+    department: 'FAST',
     researchAreas: ['Communication', 'Start-up'],
     availableSlots: 1,
     totalSlots: 3
@@ -316,7 +316,7 @@ export const mockProfessors: Professor[] = [
     id: 4,
     name: 'Dr. PHẠM VĂN TUẤN',
     email: 'tuan.pham@research.edu',
-    department: 'Artificial Intelligence',
+    department: 'FAST',
     researchAreas: ['Deep Learning', 'Neural Networks'],
     availableSlots: 0,
     totalSlots: 4
@@ -325,7 +325,7 @@ export const mockProfessors: Professor[] = [
     id: 5,
     name: 'Dr.Lê Quốc Huy',
     email: 'huy.nguyen@research.edu',
-    department: 'Electronic and Telecommunication Engineering',
+    department: 'FAST',
     researchAreas: ['Embedded Systems', 'Electrical and Electronic Engineering'],
     availableSlots: 2,
     totalSlots: 5
