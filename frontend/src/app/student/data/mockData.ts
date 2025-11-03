@@ -55,182 +55,191 @@ export interface GroupInvitation {
 
 // Current user ID (in a real app, this would come from auth)
 export const CURRENT_USER_ID = 10;
-export const CURRENT_USER_NAME = 'Current User';
+export const CURRENT_USER_NAME = 'You';
 
 export const mockStudents: Student[] = [
   {
     id: 1,
-    name: 'Alice Johnson',
-    email: 'alice@research.edu',
-    gpa: 3.8,
-    major: 'Computer Science',
-    skills: ['React', 'Python', 'Machine Learning'],
-    bio: 'Passionate about AI and web development',
+    name: 'Nguyễn Ngọc Quang Thắng',
+    email: 'thang.nguyen@research.edu',
+    gpa: 4.0,
+    major: 'Electronic engineering',
+    skills: ['analog mixed signal', 'Python', 'machine learning'],
+    bio: 'Passionate about SoCand mixed signal',
     lookingForGroup: true,
-    year: 'Junior'
+    year: '2021'
   },
   {
     id: 2,
-    name: 'Bob Smith',
-    email: 'bob@research.edu',
-    gpa: 3.9,
-    major: 'Data Science',
-    skills: ['Python', 'TensorFlow', 'Statistics'],
-    bio: 'Interested in data analysis and AI',
+    name: 'Nguyễn Đình Sáng',
+    email: 'sang.nguyen@research.edu',
+    gpa: 3.5,
+    major: 'Electronic engineering',
+    skills: ['Circuit Design', 'MATLAB', 'Antenna Design'],
+    bio: 'Fascinated by high-speed digital design and embedded systems.',
     lookingForGroup: true,
-    year: 'Senior'
+    year: '2021'
   },
   {
     id: 3,
-    name: 'Carol White',
-    email: 'carol@research.edu',
-    gpa: 3.7,
-    major: 'Computer Science',
-    skills: ['Java', 'Android', 'Kotlin'],
-    bio: 'Mobile app developer',
+    name: 'Lê Văn Đức',
+    email: 'duc.le@research.edu',
+    gpa: 2.8,
+    major: 'Electronic engineering',
+    skills: ['TensorFlow Lite', 'analog mixed signal', 'Circuit Design'],
+    bio: 'Interested in renewable energy systems and power supply optimization.',
     lookingForGroup: false,
-    year: 'Sophomore'
+    year: '2021'
   },
   {
     id: 4,
-    name: 'David Lee',
-    email: 'david@research.edu',
-    gpa: 3.6,
-    major: 'Software Engineering',
-    skills: ['JavaScript', 'React', 'Node.js'],
-    bio: 'Full-stack developer',
+    name: 'Nguyễn Thành Minh',
+    email: 'minh.nguyen@research.edu',
+    gpa: 3.2,
+    major: 'Electronic engineering',
+    skills: ['Signal Processing', 'MATLAB', 'Python'],
+    bio: 'Focusing on filtering techniques and real-time data analysis in electronic devices.',
     lookingForGroup: true,
-    year: 'Junior'
+    year: '2021'
   },
   {
     id: 5,
-    name: 'Emma Davis',
-    email: 'emma@research.edu',
-    gpa: 4.0,
-    major: 'Artificial Intelligence',
-    skills: ['Python', 'Machine Learning', 'Deep Learning'],
-    bio: 'AI researcher',
-    lookingForGroup: true,
-    year: 'Senior'
+    name: 'Hoàng Tuấn Anh',
+    email: 'anh.hoang@research.edu',
+    gpa: 3.8,
+    major: 'Electronic engineering',
+    skills: ['machine learning', 'javascript', 'react'],
+    bio: 'Interesting in Web design',
+    lookingForGroup: false,
+    year: '2020'
   },
   {
     id: 6,
-    name: 'Frank Miller',
-    email: 'frank@research.edu',
-    gpa: 3.5,
-    major: 'Computer Science',
-    skills: ['C++', 'Algorithms', 'Data Structures'],
-    bio: 'Competitive programmer',
-    lookingForGroup: false,
-    year: 'Sophomore'
+    name: 'Huỳnh Cao Đức',
+    email: 'duc.huynh@research.edu',
+    gpa: 3.1,
+    major: 'Electronic engineering',
+    skills: ['Telecommunication Systems', 'Optical Fiber Communication'],
+    bio: 'Passionate about wireless communication system and electromagnetic simulation.',
+    lookingForGroup: true,
+    year: '2020'
   },
   {
     id: 7,
-    name: 'Grace Chen',
-    email: 'grace@research.edu',
-    gpa: 3.85,
-    major: 'Data Science',
-    skills: ['R', 'Python', 'Data Visualization'],
-    bio: 'Data analyst passionate about insights',
+    name: 'Trần Dĩ Kha',
+    email: 'kha.tran@research.edu',
+    gpa: 2.9,
+    major: 'Electronic engineering',
+    skills: ['machine learning', 'Python', 'Data Science'],
+    bio: 'Seeking projects involving industrial automation and precise measurement equipment.',
     lookingForGroup: true,
-    year: 'Junior'
+    year: '2020'
   },
   {
     id: 8,
-    name: 'Henry Wilson',
-    email: 'henry@research.edu',
-    gpa: 3.75,
-    major: 'Software Engineering',
-    skills: ['Vue.js', 'TypeScript', 'GraphQL'],
-    bio: 'Frontend specialist',
+    name: 'Đặng Minh Quân',
+    email: 'quan.dang@research.edu',
+    gpa: 3.4,
+    major: 'Communication engineering',
+    skills: ['machine learning', 'Data Science', 'JavaScript'],
+    bio: 'Deeply interested in machine learning architecture and optimization.',
     lookingForGroup: true,
-    year: 'Senior'
-  }
+    year: '2021'
+  },
 ];
 
 export const mockGroups: Group[] = [
   {
-    id: 1,
-    name: 'AI Research Group',
-    leaderId: 1,
-    leaderName: 'Alice Johnson',
-    description: 'Working on machine learning projects',
-    neededSkills: ['Python', 'TensorFlow'],
+    id: 3,
+    name: 'Aquatic Freshness Tech',
+    leaderId: 3,
+    leaderName: 'Lê Văn Đức',
+    description: 'Effective low-cost features for fish freshness determination on extended self-build database',
+    neededSkills: ['Image Processing', 'Python', 'Computer Vision'],
+    currentMembers: 4,
+    maxMembers: 5,
+    hasMentor: true,
+    mentorName: 'Nguyễn Thị Anh Thư'
+  },
+  {
+    id: 4,
+    name: 'Mobile Optical Imaging',
+    leaderId: 10,
+    leaderName: 'Nguyễn Thành Minh',
+    description: 'Development Of A Smartphone Based Optical Imaging Application',
+    neededSkills: ['Mobile Development (Android/iOS)', 'Java/Kotlin', 'Signal Processing'],
     currentMembers: 3,
     maxMembers: 5,
-    hasMentor: false,
-    members: [
-      { id: 1, name: 'Alice Johnson', role: 'leader', joinedAt: '2024-01-15' },
-      { id: 2, name: 'Bob Smith', role: 'member', joinedAt: '2024-02-01' },
-      { id: 5, name: 'Emma Davis', role: 'member', joinedAt: '2024-02-10' }
-    ]
+    hasMentor: false
+
   },
   {
-    id: 2,
-    name: 'Web Dev Team',
-    leaderId: 4,
-    leaderName: 'David Lee',
-    description: 'Building innovative web applications',
-    neededSkills: ['React', 'Node.js'],
-    currentMembers: 2,
-    maxMembers: 4,
+    id: 5,
+    name: 'YOLO Electrical Management',
+    leaderId: 5,
+    leaderName: 'Hoàng Tuấn Anh',
+    description: 'Applying the YOLO algorithm to automatically monitor, recognize, and manage electrical devices in industrial or home environments.',
+    neededSkills: ['PyTorch/TensorFlow'],
+    currentMembers: 1,
+    maxMembers: 3,
     hasMentor: true,
-    mentorName: 'Dr. Emily Brown',
-    members: [
-      { id: 4, name: 'David Lee', role: 'leader', joinedAt: '2024-01-20' },
-      { id: 8, name: 'Henry Wilson', role: 'member', joinedAt: '2024-02-15' }
-    ]
+    mentorName: 'Phạm Văn Tuấn'
   },
   {
-    id: 3,
-    name: 'Mobile Innovation',
-    leaderId: 3,
-    leaderName: 'Carol White',
-    description: 'Creating mobile solutions',
-    neededSkills: ['Android', 'Kotlin'],
-    currentMembers: 4,
-    maxMembers: 4,
-    hasMentor: false,
-    members: [
-      { id: 3, name: 'Carol White', role: 'leader', joinedAt: '2024-01-10' },
-      { id: 6, name: 'Frank Miller', role: 'member', joinedAt: '2024-01-25' },
-      { id: 7, name: 'Grace Chen', role: 'member', joinedAt: '2024-02-05' },
-      { id: 1, name: 'Alice Johnson', role: 'member', joinedAt: '2024-02-20' }
-    ]
+    id: 6,
+    name: 'Smart IoT Eyewear',
+    leaderId: 12,
+    leaderName: 'Trần Dĩ Kha',
+    description: 'Smart eye-wear device with the internet of things and artificial intelligence',
+    neededSkills: ['Embedded C', 'IoT Protocols (MQTT)', 'Low-Power Hardware Design'],
+    currentMembers: 5,
+    maxMembers: 5,
+    hasMentor: false
   },
+  {
+    id: 7,
+    name: 'FAST Chatbot Dev',
+    leaderId: CURRENT_USER_ID,
+    leaderName: 'Đặng Minh Quân',
+    description: 'Smart eye-wear device with the internet of things and artificial intelligence',
+    neededSkills: ['Embedded C', 'IoT Protocols (MQTT)', 'Low-Power Hardware Design'],
+    currentMembers: 5,
+    maxMembers: 5,
+    hasMentor: false
+  }
 ];
 
 export const mockMyGroups: Group[] = [
   {
     id: 100,
-    name: 'Cloud Systems Lab',
+    name: 'FAST Chatbot Dev',
     leaderId: CURRENT_USER_ID,
     leaderName: CURRENT_USER_NAME,
-    description: 'Exploring distributed systems and cloud architecture',
-    neededSkills: ['AWS', 'Docker', 'Kubernetes'],
+    description: 'Research and development of chatbot for consulting students of FAST faculty',
+    neededSkills: ['React', 'Node.js', 'NLP (Natural Language Processing)'],
     currentMembers: 2,
     maxMembers: 5,
     hasMentor: true,
-    mentorName: 'Dr. Sarah Smith',
+    mentorName: 'Dr.NGUYỄN THỊ ANH THƯ',
     members: [
       { id: CURRENT_USER_ID, name: CURRENT_USER_NAME, role: 'leader', joinedAt: '2024-01-01' },
-      { id: 2, name: 'Bob Smith', role: 'member', joinedAt: '2024-01-15' }
+      { id: 2, name: 'Nguyễn Thành Minh', role: 'member', joinedAt: '2024-01-15' }
     ]
   },
   {
     id: 2,
-    name: 'Web Dev Team',
-    leaderId: 4,
-    leaderName: 'David Lee',
-    description: 'Building innovative web applications',
-    neededSkills: ['React', 'Node.js'],
+    name: 'ExAMS Group',
+    leaderId: 1,
+    leaderName: 'Nguyễn Ngọc Quang Thắng',
+    description: 'Design SAR ADC on MATLAB',
+    neededSkills: ['Matlab', 'analog & analog mixed signal'],
     currentMembers: 3,
     maxMembers: 4,
     hasMentor: true,
-    mentorName: 'Dr. Emily Brown',
+    mentorName: 'Dr. NGUYỄN LÊ HÒA',
     members: [
-      { id: 4, name: 'David Lee', role: 'leader', joinedAt: '2024-01-20' },
-      { id: 8, name: 'Henry Wilson', role: 'member', joinedAt: '2024-02-15' },
+      { id: 2, name: 'Nguyễn Ngọc Quang Thắng', role: 'leader', joinedAt: '2024-01-20' },
+      { id: 3, name: 'Lê Văn Đức', role: 'member', joinedAt: '2024-02-15' },
       { id: CURRENT_USER_ID, name: CURRENT_USER_NAME, role: 'member', joinedAt: '2024-03-01' }
     ]
   }
@@ -238,20 +247,20 @@ export const mockMyGroups: Group[] = [
 
 export const mockInvitations: GroupInvitation[] = [
   {
-    id: 1,
-    groupId: 1,
-    groupName: 'AI Research Group',
-    leaderName: 'Alice Johnson',
-    message: 'We think your skills would be perfect for our machine learning project!',
+    id: 3,
+    groupId: 3,
+    groupName: 'Smart Parking System Based on GPS, Camera and LoRaWan Technology',
+    leaderName: 'Lê Văn Đức',
+    message: 'We think your skills would be perfect for our project!',
     timestamp: '2024-03-10T10:30:00',
     status: 'pending'
   },
   {
     id: 2,
     groupId: 3,
-    groupName: 'Mobile Innovation',
-    leaderName: 'Carol White',
-    message: 'Join us in building the next generation of mobile apps!',
+    groupName: 'Mobile Optical Imaging',
+    leaderName: 'Nguyễn Thành Minh',
+    message: 'Development Of A Smartphone Based Optical Imaging Application',
     timestamp: '2024-03-09T14:20:00',
     status: 'pending'
   }
@@ -260,47 +269,47 @@ export const mockInvitations: GroupInvitation[] = [
 export const mockProfessors: Professor[] = [
   {
     id: 1,
-    name: 'Dr. Sarah Smith',
-    email: 'sarah.smith@research.edu',
-    department: 'Computer Science',
-    researchAreas: ['Machine Learning', 'AI'],
+    name: 'Dr.NGUYỄN THỊ ANH THƯ',
+    email: 'thu.nguyen@research.edu',
+    department: 'Electronic and Telecommunication Engineering',
+    researchAreas: ['Machine Learning', 'AI', 'Computer Vision', 'Data Mining'],
     availableSlots: 2,
     totalSlots: 5
   },
   {
     id: 2,
-    name: 'Dr. Michael Johnson',
-    email: 'michael.j@research.edu',
-    department: 'Data Science',
-    researchAreas: ['Statistics', 'Data Analysis'],
+    name: 'Dr. NGUYỄN LÊ HÒA',
+    email: 'hoa.nguyen@research.edu',
+    department: 'Electronic and Telecommunication Engineering',
+    researchAreas: ['Power Electronics', 'Automation', 'Control Systems', 'Renewable Energy'],
     availableSlots: 3,
     totalSlots: 4
   },
   {
     id: 3,
-    name: 'Dr. Emily Brown',
-    email: 'emily.b@research.edu',
-    department: 'Software Engineering',
-    researchAreas: ['Web Development', 'Cloud Computing'],
+    name: 'Dr.NGUYỄN QUANG NHƯ QUỲNH',
+    email: 'quynh.nguyen@research.edu',
+    department: 'Electronic and Telecommunication Engineering',
+    researchAreas: ['Communication Systems', 'Start-up', 'Wireless Networks', 'Innovation & Tech Transfer'],
     availableSlots: 1,
     totalSlots: 3
   },
   {
     id: 4,
-    name: 'Dr. Robert Taylor',
-    email: 'robert.t@research.edu',
+    name: 'Dr. PHẠM VĂN TUẤN',
+    email: 'tuan.pham@research.edu',
     department: 'Artificial Intelligence',
-    researchAreas: ['Deep Learning', 'Neural Networks'],
+    researchAreas: ['Deep Learning', 'Neural Networks', 'Optimization Algorithms', 'Reinforcement Learning'],
     availableSlots: 0,
     totalSlots: 4
   },
   {
     id: 5,
-    name: 'Dr. Linda Martinez',
-    email: 'linda.m@research.edu',
-    department: 'Data Science',
-    researchAreas: ['Big Data', 'Data Mining'],
+    name: 'Dr.LÊ QUỐC HUY',
+    email: 'huy.nguyen@research.edu',
+    department: 'Electronic and Telecommunication Engineering',
+    researchAreas: ['Embedded Systems', 'IoT', 'Microcontroller Programming', 'Electrical and Electronic Engineering'],
     availableSlots: 2,
     totalSlots: 5
-  }
+  },
 ];

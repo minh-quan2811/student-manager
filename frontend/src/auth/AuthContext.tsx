@@ -20,8 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const mockUsers = {
     'admin@research.edu': { password: 'admin123', role: 'admin' as const, name: 'Admin User' },
-    'student@research.edu': { password: 'student123', role: 'student' as const, name: 'John Doe' },
-    'professor@research.edu': { password: 'prof123', role: 'professor' as const, name: 'Dr. Smith' },
+    'student@research.edu': { password: 'student123', role: 'student' as const, name: 'Quan' },
+    'professor@research.edu': { password: 'prof123', role: 'professor' as const, name: 'Dr. Thu' },
   };
 
   const login = (email: string, password: string): boolean => {

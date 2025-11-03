@@ -345,7 +345,6 @@ export default function ResearchDetailModal({
                     fontSize: '0.875rem',
                     color: '#92400e'
                   }}>
-                    <strong>Note:</strong> To add your own PDF, place it in <code>frontend/public/papers/</code> and update the <code>paperPath</code> in mockData.ts
                   </div>
                 </div>
               )}
