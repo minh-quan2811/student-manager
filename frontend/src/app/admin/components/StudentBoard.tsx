@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { studentsApi } from '../../../api';
 import type { StudentWithUser } from '../../../api/types';
 import StudentDetailModal from './modals/StudentDetailModal';
+import CreateAccountModal from './CreateAccountModal';
+import CSVUploadModal from './CSVUploadModal';
 
 const faculties = ['all', 'Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'FAST'];
 const years = ['all', '2020', '2021', '2022', '2023', '2024'];
@@ -17,6 +19,8 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
   const [filterFaculty, setFilterFaculty] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
   const [editData, setEditData] = useState<StudentWithUser | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showCSVModal, setShowCSVModal] = useState<boolean>(false);  
   const getFilteredStudents = () => {
     let filtered = students;
     
@@ -29,14 +33,6 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
     }
     
     return filtered;
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      alert(`CSV upload functionality would be implemented here for file: ${file.name}`);
-      e.target.value = '';
-    }
   };
 
   const handleSave = async () => {
@@ -113,7 +109,7 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select
             value={filterFaculty}
-            onChange={(e) => setFilterFaculty(e.target.value)}
+            onChange={e => setFilterFaculty(e.target.value)}
             style={{
               padding: '0.625rem 1rem',
               border: '2px solid #e5e7eb',
@@ -126,13 +122,15 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
             }}
           >
             {faculties.map((f: string) => (
-              <option key={f} value={f}>{f === 'all' ? 'All Faculties' : f}</option>
+              <option key={f} value={f}>
+                {f === 'all' ? 'All Faculties' : f}
+              </option>
             ))}
           </select>
 
           <select
             value={filterYear}
-            onChange={(e) => setFilterYear(e.target.value)}
+            onChange={e => setFilterYear(e.target.value)}
             style={{
               padding: '0.625rem 1rem',
               border: '2px solid #e5e7eb',
@@ -149,25 +147,52 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
             ))}
           </select>
 
-          <label style={{
-            padding: '0.625rem 1.25rem',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.875rem',
-            fontWeight: '600',
-            boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-            transition: 'all 0.3s'
-          }}>
+          {/* 👇 CHANGED: Upload CSV is now a button that opens modal */}
+          <button
+            onClick={() => setShowCSVModal(true)}
+            style={{
+              padding: '0.625rem 1.25rem',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s'
+            }}
+          >
             <Upload size={16} />
             Upload CSV
-            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
-        </div>
+          </button>
+
+          {/* 👇 CHANGED: Create button now opens modal */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: '0.625rem 1.25rem',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+              transition: 'all 0.3s'
+            }}
+          >
+            <Plus size={16} />
+            Create Student
+          </button>
+        </div>    
       </div>
 
       {/* Student Cards Grid */}
@@ -299,12 +324,97 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
           student={selectedStudent}
           editData={editData}
           setEditData={setEditData}
-          onClose={() => { setSelectedStudent(null); setEditData(null); }}
+          onClose={() => {
+            setSelectedStudent(null);
+            setEditData(null);
+          }}
           onSave={handleSave}
           onDelete={handleDelete}
         />
       )}
+      
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        accountType="student"
+        onSubmit={async (accountData) => {
+          try {
+            // First create the user account
+            const userResponse = await fetch('http://localhost:8000/api/v1/auth/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              },
+              body: JSON.stringify({
+                email: accountData.email,
+                password: accountData.password,
+                name: accountData.name,
+                role: 'STUDENT'
+              })
+            });
 
+            if (!userResponse.ok) throw new Error('Failed to create user account');
+            const user = await userResponse.json();
+
+            // Then create the student profile
+            const newStudent = await studentsApi.create({
+              user_id: user.id,
+              student_id: accountData.student_id,
+              gpa: accountData.gpa,
+              major: accountData.major,
+              faculty: accountData.faculty,
+              year: accountData.year,
+              skills: accountData.skills || [],
+              bio: '',
+              looking_for_group: true
+            });
+
+            // Add to local state
+            setStudents([newStudent, ...students]);
+            setShowCreateModal(false);
+            alert('Student account created successfully!');
+          } catch (error) {
+            console.error('Failed to create student:', error);
+            alert('Failed to create student account. Please try again.');
+            throw error;
+          }
+        }}
+      />
+
+      {/* CSV Upload Modal */}
+      <CSVUploadModal
+        isOpen={showCSVModal}
+        onClose={() => setShowCSVModal(false)}
+        accountType="student"
+        onSubmit={async (studentsData) => {
+          try {
+            const response = await fetch('http://localhost:8000/api/v1/students/bulk', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              },
+              body: JSON.stringify(studentsData)
+            });
+
+            if (!response.ok) throw new Error('Failed to create students');
+
+            const result = await response.json();
+            
+            // Refresh the students list
+            const updatedStudents = await studentsApi.getAll();
+            setStudents(updatedStudents);
+            
+            setShowCSVModal(false);
+            alert(`Successfully created ${result.success} student accounts!`);
+          } catch (error) {
+            console.error('Failed to create students:', error);
+            throw error;
+          }
+        }}
+      />
     </>
   );
 }

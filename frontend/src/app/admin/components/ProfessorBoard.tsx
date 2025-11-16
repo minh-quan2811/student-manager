@@ -3,6 +3,8 @@ import { Upload, Plus, X } from 'lucide-react';
 import { professorsApi } from '../../../api';
 import type { ProfessorWithUser } from '../../../api/types';
 import ProfessorDetailModal from './modals/ProfessorDetailModal';
+import CreateAccountModal from './CreateAccountModal';
+import CSVUploadModal from './CSVUploadModal';
 
 const faculties = ['all', 'Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'FAST'];
 
@@ -16,6 +18,7 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
   const [filterFaculty, setFilterFaculty] = useState<string>('all');
   const [editData, setEditData] = useState<ProfessorWithUser | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showCSVModal, setShowCSVModal] = useState<boolean>(false);
 
   const getFilteredProfessors = () => {
     if (filterFaculty === 'all') return professors;
@@ -123,11 +126,14 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
             ))}
           </select>
 
-          <label
+          {/* 👇 CHANGED: Upload CSV is now a button */}
+          <button
+            onClick={() => setShowCSVModal(true)}
             style={{
               padding: '0.625rem 1.25rem',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
+              border: 'none',
               borderRadius: '10px',
               cursor: 'pointer',
               display: 'flex',
@@ -141,14 +147,13 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
           >
             <Upload size={16} />
             Upload CSV
-            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
+          </button>
 
           <button
             onClick={() => setShowCreateModal(true)}
             style={{
               padding: '0.625rem 1.25rem',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '10px',
@@ -158,14 +163,14 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
               gap: '0.5rem',
               fontSize: '0.875rem',
               fontWeight: '600',
-              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
               transition: 'all 0.3s'
             }}
           >
             <Plus size={16} />
-            Create
+            Create Professor
           </button>
-        </div>
+        </div> 
       </div>
 
       {/* Professor Cards Grid */}
@@ -261,7 +266,7 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
         ))}
       </div>
 
-      {/* Edit Modal */}
+{/* Edit Modal */}
       {selectedProfessor && editData && (
         <ProfessorDetailModal
           professor={selectedProfessor}
@@ -276,80 +281,93 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
         />
       )}
 
-      {/* Create Modal - Simplified */}
-      {showCreateModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem'
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '20px',
-              padding: '2rem',
-              maxWidth: '600px',
-              width: '100%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
-                  Create Professor
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
-                  Backend user creation required first
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '0.25rem'
-                }}
-              >
-                <X size={24} color="#6b7280" />
-              </button>
-            </div>
+      {/* 👇 ADD THESE TWO NEW MODALS HERE */}
+      
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        accountType="professor"
+        onSubmit={async (accountData) => {
+          try {
+            // First create the user account
+            const userResponse = await fetch('http://localhost:8000/api/v1/auth/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              },
+              body: JSON.stringify({
+                email: accountData.email,
+                password: accountData.password,
+                name: accountData.name,
+                role: 'PROFESSOR'
+              })
+            });
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                Professor creation requires user account creation through the backend API first.
-              </p>
-            </div>
+            if (!userResponse.ok) throw new Error('Failed to create user account');
+            const user = await userResponse.json();
 
-            <button
-              onClick={() => setShowCreateModal(false)}
-              style={{
-                width: '100%',
-                padding: '0.875rem',
-                background: '#6b7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '0.9375rem'
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+            // Then create the professor profile
+            const newProfessor = await professorsApi.create({
+              user_id: user.id,
+              professor_id: accountData.professor_id,
+              faculty: accountData.faculty,
+              field: accountData.field,
+              department: accountData.department,
+              research_areas: accountData.research_areas || [],
+              research_interests: [],
+              achievements: '',
+              publications: accountData.publications || 0,
+              bio: '',
+              available_slots: accountData.total_slots || 5,
+              total_slots: accountData.total_slots || 5
+            });
+
+            // Add to local state
+            setProfessors([newProfessor, ...professors]);
+            setShowCreateModal(false);
+            alert('Professor account created successfully!');
+          } catch (error) {
+            console.error('Failed to create professor:', error);
+            alert('Failed to create professor account. Please try again.');
+            throw error;
+          }
+        }}
+      />
+
+      {/* CSV Upload Modal */}
+      <CSVUploadModal
+        isOpen={showCSVModal}
+        onClose={() => setShowCSVModal(false)}
+        accountType="professor"
+        onSubmit={async (professorsData) => {
+          try {
+            const response = await fetch('http://localhost:8000/api/v1/professors/bulk', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              },
+              body: JSON.stringify(professorsData)
+            });
+
+            if (!response.ok) throw new Error('Failed to create professors');
+
+            const result = await response.json();
+            
+            // Refresh the professors list
+            const updatedProfessors = await professorsApi.getAll();
+            setProfessors(updatedProfessors);
+            
+            setShowCSVModal(false);
+            alert(`Successfully created ${result.success} professor accounts!`);
+          } catch (error) {
+            console.error('Failed to create professors:', error);
+            throw error;
+          }
+        }}
+      />
     </>
   );
 }
