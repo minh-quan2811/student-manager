@@ -1,12 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../auth/AuthContext';
 import StudentBoard from '../components/StudentBoard';
 import ProfessorBoard from '../components/ProfessorBoard';
 import ResearchBoard from '../components/ResearchBoard';
+import { studentsApi, professorsApi, researchApi } from '../../../api';
+import type { StudentWithUser, ProfessorWithUser, ResearchPaper } from '../../../api/types';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState<'students' | 'professors' | 'research'>('students');
+  
+  // Data states
+  const [students, setStudents] = useState<StudentWithUser[]>([]);
+  const [professors, setProfessors] = useState<ProfessorWithUser[]>([]);
+  const [research, setResearch] = useState<ResearchPaper[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data on mount and section change
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        if (activeSection === 'students') {
+          const data = await studentsApi.getAll();
+          setStudents(data);
+        } else if (activeSection === 'professors') {
+          const data = await professorsApi.getAll();
+          setProfessors(data);
+        } else if (activeSection === 'research') {
+          const data = await researchApi.getAll();
+          setResearch(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [activeSection]);
 
   return (
     <div style={{
@@ -149,9 +183,24 @@ export default function AdminDashboard() {
         margin: '0 auto',
         padding: '2rem'
       }}>
-        {activeSection === 'students' && <StudentBoard />}
-        {activeSection === 'professors' && <ProfessorBoard />}
-        {activeSection === 'research' && <ResearchBoard />}
+        {isLoading ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '400px',
+            fontSize: '1.5rem',
+            color: '#667eea'
+          }}>
+            Loading...
+          </div>
+        ) : (
+          <>
+            {activeSection === 'students' && <StudentBoard students={students} setStudents={setStudents} />}
+            {activeSection === 'professors' && <ProfessorBoard professors={professors} setProfessors={setProfessors} />}
+            {activeSection === 'research' && <ResearchBoard research={research} setResearch={setResearch} />}
+          </>
+        )}
       </div>
     </div>
   );

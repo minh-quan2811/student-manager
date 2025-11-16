@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { X, Edit, Trash2, Users, Award, FileText, GraduationCap } from 'lucide-react';
-import type { Research, Professor, ResearchMember } from '../../data/mockData';
-import { mockProfessors } from '../../data/mockData';
+import type { ResearchPaper, ProfessorWithUser } from '../../../../api/types';
 
 interface ResearchDetailModalProps {
-  research: Research;
-  editData: Research;
-  setEditData: (data: Research) => void;
+  research: ResearchPaper;
+  editData: ResearchPaper;
+  setEditData: (data: ResearchPaper) => void;
   onClose: () => void;
   onSave: () => void;
   onDelete: () => void;
@@ -22,10 +21,6 @@ export default function ResearchDetailModal({
 }: ResearchDetailModalProps) {
   const [showPdf, setShowPdf] = useState(false);
 
-  const getProfessors = (): Professor[] => {
-    return mockProfessors.filter(p => research.professors.includes(p.id));
-  };
-
   const getRankBadgeColor = (rank: number) => {
     if (rank === 1) return { bg: '#fef3c7', color: '#92400e' };
     if (rank === 2) return { bg: '#e0e7ff', color: '#3730a3' };
@@ -34,7 +29,6 @@ export default function ResearchDetailModal({
   };
 
   const rankColors = getRankBadgeColor(research.rank);
-  const professors = getProfessors();
 
   return (
     <div style={{
@@ -199,42 +193,6 @@ export default function ResearchDetailModal({
 
           {/* Right Content Area */}
           <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'auto' }}>
-            {/* Professors Section */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ 
-                fontSize: '1.125rem', 
-                fontWeight: 'bold', 
-                color: '#1f2937', 
-                marginBottom: '1rem'
-              }}>
-                Faculty Advisors
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                {professors.map((prof: Professor) => (
-                  <div key={prof.id} style={{
-                    padding: '1.25rem',
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    borderRadius: '12px',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
-                  }}>
-                    <div style={{ 
-                      fontSize: '1.125rem', 
-                      fontWeight: '700',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {prof.name}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', opacity: 0.95, marginBottom: '0.5rem' }}>
-                      {prof.field}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                      {prof.publications} Publications
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             {/* Abstract */}
             <div style={{ marginBottom: '1.5rem' }}>

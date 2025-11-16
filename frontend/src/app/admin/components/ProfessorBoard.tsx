@@ -1,28 +1,21 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Upload, Plus, X } from 'lucide-react';
-import {
-  mockProfessors,
-  additionalProfessors,
-  faculties,
-  type Professor
-} from '../data/mockData';
+import { professorsApi } from '../../../api';
+import type { ProfessorWithUser } from '../../../api/types';
 import ProfessorDetailModal from './modals/ProfessorDetailModal';
 
-export default function ProfessorBoard() {
-  const [professors, setProfessors] = useState<Professor[]>(mockProfessors);
-  const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
+const faculties = ['all', 'Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'FAST'];
+
+interface ProfessorBoardProps {
+  professors: ProfessorWithUser[];
+  setProfessors: (professors: ProfessorWithUser[]) => void;
+}
+
+export default function ProfessorBoard({ professors, setProfessors }: ProfessorBoardProps) {
+  const [selectedProfessor, setSelectedProfessor] = useState<ProfessorWithUser | null>(null);
   const [filterFaculty, setFilterFaculty] = useState<string>('all');
-  const [editData, setEditData] = useState<Professor | null>(null);
+  const [editData, setEditData] = useState<ProfessorWithUser | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [newProfessor, setNewProfessor] = useState<Professor>({
-    id: '',
-    name: '',
-    faculty: 'Computer Science',
-    field: '',
-    achievements: '',
-    email: '',
-    publications: 0
-  });
 
   const getFilteredProfessors = () => {
     if (filterFaculty === 'all') return professors;
@@ -32,53 +25,54 @@ export default function ProfessorBoard() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setProfessors(prev => [...prev, ...additionalProfessors]);
-      alert(`File "${file.name}" uploaded! Added ${additionalProfessors.length} new professors.`);
-      // reset input value so same file can be uploaded again if desired
-      e.currentTarget.value = '';
+      alert(`CSV upload functionality would be implemented here for file: ${file.name}`);
+      e.target.value = '';
     }
   };
 
-  const handleSave = () => {
-    if (editData) {
-      setProfessors(prev => prev.map(p => (p.id === editData.id ? editData : p)));
-      setSelectedProfessor(null);
-      setEditData(null);
-      alert('Professor updated successfully!');
+  const handleSave = async () => {
+    if (editData && selectedProfessor) {
+      try {
+        const updated = await professorsApi.update(selectedProfessor.id, {
+          faculty: editData.faculty,
+          field: editData.field,
+          department: editData.department,
+          research_areas: editData.research_areas,
+          research_interests: editData.research_interests,
+          achievements: editData.achievements,
+          publications: editData.publications,
+          bio: editData.bio,
+          available_slots: editData.available_slots,
+          total_slots: editData.total_slots
+        });
+        
+        setProfessors(professors.map(p => p.id === updated.id ? updated : p));
+        setSelectedProfessor(null);
+        setEditData(null);
+        alert('Professor updated successfully!');
+      } catch (error) {
+        console.error('Failed to update professor:', error);
+        alert('Failed to update professor. Please try again.');
+      }
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedProfessor && window.confirm(`Delete ${selectedProfessor.name}?`)) {
-      setProfessors(prev => prev.filter(p => p.id !== selectedProfessor.id));
-      setSelectedProfessor(null);
-      setEditData(null);
-      alert('Professor deleted successfully!');
+      try {
+        await professorsApi.delete(selectedProfessor.id);
+        setProfessors(professors.filter(p => p.id !== selectedProfessor.id));
+        setSelectedProfessor(null);
+        setEditData(null);
+        alert('Professor deleted successfully!');
+      } catch (error) {
+        console.error('Failed to delete professor:', error);
+        alert('Failed to delete professor. Please try again.');
+      }
     }
   };
 
-  const handleCreate = () => {
-    if (!newProfessor.name || !newProfessor.field || !newProfessor.email) {
-      alert('Please fill in all required fields!');
-      return;
-    }
-
-    const id = `P${String(professors.length + 1).padStart(3, '0')}`;
-    setProfessors(prev => [...prev, { ...newProfessor, id }]);
-    setShowCreateModal(false);
-    setNewProfessor({
-      id: '',
-      name: '',
-      faculty: 'Computer Science',
-      field: '',
-      achievements: '',
-      email: '',
-      publications: 0
-    });
-    alert('Professor created successfully!');
-  };
-
-  const openModal = (professor: Professor) => {
+  const openModal = (professor: ProfessorWithUser) => {
     setSelectedProfessor(professor);
     setEditData({ ...professor });
   };
@@ -215,7 +209,7 @@ export default function ProfessorBoard() {
                   marginBottom: '0.25rem'
                 }}
               >
-                {professor.id}
+                ID: {professor.professor_id}
               </div>
               <h3
                 style={{
@@ -267,25 +261,22 @@ export default function ProfessorBoard() {
         ))}
       </div>
 
-      {/* Edit Modal (uses dynamic field rendering safely) */}
+      {/* Edit Modal */}
       {selectedProfessor && editData && (
-        <div>
-          {/* Use your ProfessorDetailModal component if you prefer; kept here to mirror your original usage */}
-          <ProfessorDetailModal
-            professor={selectedProfessor}
-            editData={editData}
-            setEditData={setEditData}
-            onClose={() => {
-              setSelectedProfessor(null);
-              setEditData(null);
-            }}
-            onSave={handleSave}
-            onDelete={handleDelete}
-          />
-        </div>
+        <ProfessorDetailModal
+          professor={selectedProfessor}
+          editData={editData}
+          setEditData={setEditData}
+          onClose={() => {
+            setSelectedProfessor(null);
+            setEditData(null);
+          }}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
       )}
 
-      {/* Create Modal */}
+      {/* Create Modal - Simplified */}
       {showCreateModal && (
         <div
           style={{
@@ -309,8 +300,6 @@ export default function ProfessorBoard() {
               padding: '2rem',
               maxWidth: '600px',
               width: '100%',
-              maxHeight: '85vh',
-              overflow: 'auto',
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
             }}
           >
@@ -320,7 +309,7 @@ export default function ProfessorBoard() {
                   Create Professor
                 </h3>
                 <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
-                  Add a new professor to the system
+                  Backend user creation required first
                 </p>
               </div>
               <button
@@ -337,155 +326,26 @@ export default function ProfessorBoard() {
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  value={newProfessor.name}
-                  onChange={e => setNewProfessor({ ...newProfessor, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Faculty *
-                </label>
-                <select
-                  value={newProfessor.faculty}
-                  onChange={e => setNewProfessor({ ...newProfessor, faculty: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  {faculties.filter(f => f !== 'all').map((f: string) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Research Field *
-                </label>
-                <input
-                  type="text"
-                  value={newProfessor.field}
-                  onChange={e => setNewProfessor({ ...newProfessor, field: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={newProfessor.email}
-                  onChange={e => setNewProfessor({ ...newProfessor, email: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Publications
-                </label>
-                <input
-                  type="number"
-                  value={newProfessor.publications}
-                  onChange={e => setNewProfessor({ ...newProfessor, publications: parseInt(e.target.value) || 0 })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Achievements
-                </label>
-                <textarea
-                  value={newProfessor.achievements}
-                  onChange={e => setNewProfessor({ ...newProfessor, achievements: e.target.value })}
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    fontFamily: 'inherit',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                Professor creation requires user account creation through the backend API first.
+              </p>
             </div>
 
             <button
-              onClick={handleCreate}
+              onClick={() => setShowCreateModal(false)}
               style={{
                 width: '100%',
                 padding: '0.875rem',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: '#6b7280',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
                 cursor: 'pointer',
                 fontWeight: '600',
-                fontSize: '0.9375rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                fontSize: '0.9375rem'
               }}
             >
-              <Plus size={18} />
-              Create Professor
+              Close
             </button>
           </div>
         </div>

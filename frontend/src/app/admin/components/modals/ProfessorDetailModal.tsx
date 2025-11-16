@@ -1,10 +1,10 @@
 import { X, Edit, Trash2, Mail, BookOpen, Award } from 'lucide-react';
-import type { Professor } from '../../data/mockData';
+import type { ProfessorWithUser } from '../../../../api/types';
 
 interface ProfessorDetailModalProps {
-  professor: Professor;
-  editData: Professor;
-  setEditData: (data: Professor) => void;
+  professor: ProfessorWithUser;
+  editData: ProfessorWithUser;
+  setEditData: (data: ProfessorWithUser) => void;
   onClose: () => void;
   onSave: () => void;
   onDelete: () => void;
@@ -208,7 +208,7 @@ export default function ProfessorDetailModal({
                   Research Interests
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  {editData.researchInterests?.map((interest: string, index: number) => (
+                  {editData.research_interests?.map((interest: string, index: number) => (
                     <span key={index} style={{
                       padding: '0.375rem 0.75rem',
                       background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -224,8 +224,8 @@ export default function ProfessorDetailModal({
                 <input
                   type="text"
                   placeholder="Add interests (comma-separated)"
-                  value={editData.researchInterests?.join(', ') || ''}
-                  onChange={(e) => setEditData({...editData, researchInterests: e.target.value.split(',').map(s => s.trim())})}
+                  value={editData.research_interests?.join(', ') || ''}
+                  onChange={(e) => setEditData({...editData, research_interests: e.target.value.split(',').map(s => s.trim())})}
                   style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
