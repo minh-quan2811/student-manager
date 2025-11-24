@@ -18,17 +18,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('access_token');
-      if (token) {
+      try {
+        const token = localStorage.getItem('access_token');
+        
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 5000)
+        );
+        
+        const userPromise = authApi.getCurrentUser();
+        
         try {
-          const currentUser = await authApi.getCurrentUser();
+          const currentUser = await Promise.race([userPromise, timeoutPromise]) as User;
           setUser(currentUser);
         } catch (error) {
           console.error('Failed to get current user:', error);
+          // Clear invalid token
           localStorage.removeItem('access_token');
+          setUser(null);
         }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        localStorage.removeItem('access_token');
+        setUser(null);
+      } finally {
+        // ALWAYS set loading to false
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuth();
@@ -55,13 +76,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return (
       <div style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        fontSize: '1.5rem',
-        color: '#667eea'
+        gap: '1rem'
       }}>
-        Loading...
+        <div style={{
+          width: '60px',
+          height: '60px',
+          border: '4px solid #f3f4f6',
+          borderTop: '4px solid #667eea',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+        <div style={{ 
+          fontSize: '1.125rem', 
+          color: '#667eea',
+          fontWeight: '600'
+        }}>
+          Loading...
+        </div>
       </div>
     );
   }

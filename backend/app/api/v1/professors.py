@@ -5,7 +5,8 @@ from app.database import get_db
 from app.schemas.professor import Professor, ProfessorCreate, ProfessorUpdate, ProfessorWithUser
 from app.crud import professor as crud_professor
 from app.api.deps import get_current_user, get_current_admin
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.models.professor import Professor as ProfessorModel
 from app.utils.security import get_password_hash
 
 router = APIRouter()
@@ -42,8 +43,8 @@ def create_professors_bulk(
                 continue
             
             # Check if professor_id already exists
-            existing_prof = db.query(Professor).filter(
-                Professor.professor_id == prof_data['professor_id']
+            existing_prof = db.query(ProfessorModel).filter(
+                ProfessorModel.professor_id == prof_data['professor_id']
             ).first()
             
             if existing_prof:
@@ -73,7 +74,7 @@ def create_professors_bulk(
             
             # Create professor profile
             total_slots = prof_data.get('total_slots', 5)
-            db_professor = Professor(
+            db_professor = ProfessorModel(
                 user_id=db_user.id,
                 professor_id=prof_data['professor_id'],
                 faculty=prof_data['faculty'],

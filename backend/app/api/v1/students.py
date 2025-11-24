@@ -5,7 +5,7 @@ from app.database import get_db
 from app.schemas.student import Student, StudentCreate, StudentUpdate, StudentWithUser
 from app.crud import student as crud_student
 from app.api.deps import get_current_user, get_current_admin
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.utils.security import get_password_hash 
 
 router = APIRouter()
@@ -91,7 +91,7 @@ def create_students_bulk(
                 'name': student_data['name'],
                 'student_id': student_data['student_id'],
                 'username': username,
-                'password': password,  # Only returned once for admin to share
+                'password': password,
                 'faculty': student_data['faculty']
             })
             
