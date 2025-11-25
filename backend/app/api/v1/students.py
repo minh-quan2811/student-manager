@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.database import get_db
 from app.schemas.student import Student, StudentCreate, StudentUpdate, StudentWithUser
 from app.crud import student as crud_student
 from app.api.deps import get_current_user, get_current_admin
 from app.models.user import User, UserRole
+from app.models.student import Student as StudentModel
 from app.utils.security import get_password_hash 
 
 router = APIRouter()
@@ -22,12 +23,16 @@ def generate_password(name: str, faculty: str) -> str:
     faculty_short = faculty.lower().replace(' ', '')
     return f"{first_name}_{faculty_short}"
 
-@router.post("/bulk", response_model=List[dict])
+@router.post("/bulk", response_model=Dict[str, Any])
 def create_students_bulk(
-    students_data: List[dict],
+    students_data: List[Dict[str, Any]],
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin)
 ):
+    """
+    Bulk create student accounts from CSV data.
+    Returns a dictionary with success count, failed count, created accounts, and errors.
+    """
     created_accounts = []
     errors = []
     
@@ -42,8 +47,8 @@ def create_students_bulk(
                 continue
             
             # Check if student_id already exists
-            existing_student = db.query(Student).filter(
-                Student.student_id == student_data['student_id']
+            existing_student = db.query(StudentModel).filter(
+                StudentModel.student_id == student_data['student_id']
             ).first()
             
             if existing_student:
@@ -72,7 +77,7 @@ def create_students_bulk(
             db.flush()  # Get user ID without committing
             
             # Create student profile
-            db_student = Student(
+            db_student = StudentModel(
                 user_id=db_user.id,
                 student_id=student_data['student_id'],
                 gpa=float(student_data['gpa']),
@@ -102,19 +107,120 @@ def create_students_bulk(
     
     # Commit all successful creations
     if created_accounts:
-        db.commit()
-    
-    if errors:
-        return {
-            'success': len(created_accounts),
-            'failed': len(errors),
-            'accounts': created_accounts,
-            'errors': errors
-        }
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            return {
+                'success': 0,
+                'failed': len(students_data),
+                'accounts': [],
+                'errors': [f"Database commit failed: {str(e)}"]
+            }
     
     return {
         'success': len(created_accounts),
-        'failed': 0,
+        'failed': len(errors),
         'accounts': created_accounts,
-        'errors': []
+        'errors': errors
     }
+
+
+# Add CRUD endpoints for students
+@router.get("/", response_model=List[StudentWithUser])
+def get_students(
+    skip: int = 0,
+    limit: int = 100,
+    faculty: Optional[str] = Query(None),
+    year: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all students with optional filters"""
+    query = db.query(StudentModel).join(User)
+    
+    if faculty:
+        query = query.filter(StudentModel.faculty == faculty)
+    if year:
+        query = query.filter(StudentModel.year == year)
+    
+    students = query.offset(skip).limit(limit).all()
+    
+    # Manually construct response with user data
+    result = []
+    for student in students:
+        result.append({
+            **student.__dict__,
+            'name': student.user.name,
+            'email': student.user.email
+        })
+    
+    return result
+
+
+@router.get("/{student_id}", response_model=StudentWithUser)
+def get_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific student by ID"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    return {
+        **student.__dict__,
+        'name': student.user.name,
+        'email': student.user.email
+    }
+
+
+@router.put("/{student_id}", response_model=StudentWithUser)
+def update_student(
+    student_id: int,
+    student_data: StudentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Update a student (admin only)"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Update fields
+    update_data = student_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+    
+    db.commit()
+    db.refresh(student)
+    
+    return {
+        **student.__dict__,
+        'name': student.user.name,
+        'email': student.user.email
+    }
+
+
+@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Delete a student (admin only)"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Delete the user (which will cascade delete the student profile)
+    user = db.query(User).filter(User.id == student.user_id).first()
+    if user:
+        db.delete(user)
+    
+    db.commit()
+    return None

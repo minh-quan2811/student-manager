@@ -31,6 +31,7 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
   });
 
   const [currentSkill, setCurrentSkill] = useState('');
+  const [currentResearchArea, setCurrentResearchArea] = useState('');
   const [generatedCreds, setGeneratedCreds] = useState<{username: string, password: string} | null>(null);
 
   if (!isOpen) return null;
@@ -50,13 +51,24 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
       return;
     }
 
+    if (accountType === 'student' && (!formData.student_id || !formData.major)) {
+      alert('Please fill in all required student fields');
+      return;
+    }
+
+    if (accountType === 'professor' && (!formData.professor_id || !formData.field || !formData.department)) {
+      alert('Please fill in all required professor fields');
+      return;
+    }
+
     const creds = generateCredentials();
     setGeneratedCreds(creds);
 
     await onSubmit({
       ...formData,
       email: creds.username,
-      password: creds.password
+      password: creds.password,
+      role: accountType === 'student' ? 'student' : 'professor' // Use lowercase to match backend enum
     });
   };
 
@@ -67,6 +79,16 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
         skills: [...formData.skills, currentSkill.trim()]
       });
       setCurrentSkill('');
+    }
+  };
+
+  const handleAddResearchArea = () => {
+    if (currentResearchArea.trim() && !formData.research_areas.includes(currentResearchArea.trim())) {
+      setFormData({
+        ...formData,
+        research_areas: [...formData.research_areas, currentResearchArea.trim()]
+      });
+      setCurrentResearchArea('');
     }
   };
 
@@ -414,6 +436,83 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
                     />
                   </div>
 
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                      Research Areas
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <input
+                        type="text"
+                        value={currentResearchArea}
+                        onChange={(e) => setCurrentResearchArea(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddResearchArea()}
+                        placeholder="Add research area"
+                        style={{
+                          flex: 1,
+                          padding: '0.75rem 1rem',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '10px',
+                          fontSize: '0.9375rem',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        onClick={handleAddResearchArea}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                    {formData.research_areas.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {formData.research_areas.map((area: string) => (
+                          <span
+                            key={area}
+                            style={{
+                              padding: '0.375rem 0.75rem',
+                              background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                              color: '#92400e',
+                              borderRadius: '8px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              border: '2px solid #fde68a',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}
+                          >
+                            {area}
+                            <button
+                              onClick={() => setFormData({
+                                ...formData,
+                                research_areas: formData.research_areas.filter((a: string) => a !== area)
+                              })}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                display: 'flex',
+                                color: '#92400e'
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
@@ -423,7 +522,7 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
                         type="number"
                         min="0"
                         value={formData.publications}
-                        onChange={(e) => setFormData({ ...formData, publications: parseInt(e.target.value) })}
+                        onChange={(e) => setFormData({ ...formData, publications: parseInt(e.target.value) || 0 })}
                         style={{
                           width: '100%',
                           padding: '0.75rem 1rem',
@@ -443,7 +542,7 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
                         type="number"
                         min="1"
                         value={formData.total_slots}
-                        onChange={(e) => setFormData({ ...formData, total_slots: parseInt(e.target.value) })}
+                        onChange={(e) => setFormData({ ...formData, total_slots: parseInt(e.target.value) || 5 })}
                         style={{
                           width: '100%',
                           padding: '0.75rem 1rem',

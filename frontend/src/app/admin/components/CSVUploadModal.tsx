@@ -18,20 +18,32 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
 
   if (!isOpen) return null;
 
+  // Better CSV parsing that handles quoted fields and commas within fields
   const parseCSV = (text: string): any[] => {
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split('\n').filter(line => line.trim());
+    if (lines.length === 0) return [];
+
     const headers = lines[0].split(',').map(h => h.trim());
     const data: any[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Simple CSV parsing - split by comma
+      const values = line.split(',').map(v => v.trim());
       const row: any = {};
       
       headers.forEach((header, index) => {
-        row[header] = values[index];
+        if (index < values.length) {
+          row[header] = values[index];
+        }
       });
 
-      data.push(row);
+      // Skip empty rows
+      if (Object.values(row).some(v => v)) {
+        data.push(row);
+      }
     }
 
     return data;
@@ -99,17 +111,47 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
       try {
         const data = parseCSV(text);
         
-        // Parse skills/research_areas from comma-separated strings
-        const processedData = data.map(row => ({
-          ...row,
-          skills: row.skills ? row.skills.split(';').map((s: string) => s.trim()) : [],
-          research_areas: row.research_areas ? row.research_areas.split(';').map((s: string) => s.trim()) : [],
-          research_interests: row.research_interests ? row.research_interests.split(';').map((s: string) => s.trim()) : [],
-          gpa: row.gpa ? parseFloat(row.gpa) : undefined,
-          publications: row.publications ? parseInt(row.publications) : 0,
-          total_slots: row.total_slots ? parseInt(row.total_slots) : 5,
-          looking_for_group: row.looking_for_group === 'true' || row.looking_for_group === '1'
-        }));
+        console.log('Parsed CSV data:', data); // Debug log
+        
+        // Process the data
+        const processedData = data.map(row => {
+          const processed: any = { ...row };
+          
+          // Parse skills/research_areas from semicolon-separated strings
+          if (row.skills) {
+            processed.skills = row.skills.split(';').map((s: string) => s.trim()).filter(Boolean);
+          } else {
+            processed.skills = [];
+          }
+          
+          if (row.research_areas) {
+            processed.research_areas = row.research_areas.split(';').map((s: string) => s.trim()).filter(Boolean);
+          } else {
+            processed.research_areas = [];
+          }
+          
+          if (row.research_interests) {
+            processed.research_interests = row.research_interests.split(';').map((s: string) => s.trim()).filter(Boolean);
+          } else {
+            processed.research_interests = [];
+          }
+          
+          // Parse numeric fields
+          if (row.gpa) processed.gpa = parseFloat(row.gpa);
+          if (row.publications) processed.publications = parseInt(row.publications) || 0;
+          if (row.total_slots) processed.total_slots = parseInt(row.total_slots) || 5;
+          
+          // Parse boolean
+          if (row.looking_for_group !== undefined) {
+            processed.looking_for_group = row.looking_for_group === 'true' || row.looking_for_group === '1' || row.looking_for_group === 'TRUE';
+          } else {
+            processed.looking_for_group = true;
+          }
+          
+          return processed;
+        });
+
+        console.log('Processed data:', processedData); // Debug log
 
         const validationErrors = accountType === 'student' 
           ? validateStudentData(processedData)
@@ -121,6 +163,7 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
           setParsedData(processedData);
         }
       } catch (error) {
+        console.error('CSV parse error:', error);
         setErrors(['Failed to parse CSV file. Please check the format.']);
       }
     };
@@ -133,10 +176,12 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
 
     setIsProcessing(true);
     try {
+      console.log('Submitting data:', parsedData); // Debug log
       await onSubmit(parsedData);
       setCreatedCount(parsedData.length);
       setUploadComplete(true);
     } catch (error) {
+      console.error('Submit error:', error);
       setErrors(['Failed to create accounts. Please try again.']);
     } finally {
       setIsProcessing(false);
@@ -151,9 +196,9 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
       csvContent += 'John Doe,S001,3.8,Computer Science,FAST,2021,Python;JavaScript;React,Passionate about AI,true\n';
       csvContent += 'Jane Smith,S002,3.5,Electrical Engineering,FAST,2020,MATLAB;Circuit Design,Interested in IoT,true';
     } else {
-      csvContent = 'name,professor_id,faculty,field,department,research_areas,research_interests,achievements,publications,total_slots,bio\n';
-      csvContent += 'Dr. John Doe,P001,FAST,Machine Learning,Computer Science,AI;Deep Learning;Computer Vision,Neural Networks;Image Processing,Published 20+ papers,25,5,Expert in AI\n';
-      csvContent += 'Dr. Jane Smith,P002,FAST,Power Electronics,Electrical Engineering,Control Systems;Automation,Renewable Energy,Award winner,15,4,Specialist in automation';
+      csvContent = 'name,professor_id,faculty,field,department,research_areas,research_interests,achievements,publications,bio,total_slots\n';
+      csvContent += 'Dr. John Doe,P001,FAST,Machine Learning,Computer Science,AI;Deep Learning;Computer Vision,Neural Networks;Image Processing,Published 20+ papers,25,Expert in AI,5\n';
+      csvContent += 'Dr. Jane Smith,P002,FAST,Power Electronics,Electrical Engineering,Control Systems;Automation,Renewable Energy,Award winner,15,Specialist in automation,4';
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
