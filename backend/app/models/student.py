@@ -7,7 +7,11 @@ class Student(Base):
     __tablename__ = "students"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True
+    )
     student_id = Column(String, unique=True, index=True)
     gpa = Column(Float)
     major = Column(String)

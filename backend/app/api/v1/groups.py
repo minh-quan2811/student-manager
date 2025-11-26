@@ -74,7 +74,7 @@ def delete_group(
     
     # Check if current user is the group leader or admin
     if current_user.role != "admin":
-        if current_user.student and current_user.student[0].id != db_group.leader_id:
+        if current_user.student and current_user.student.id != db_group.leader_id:
             raise HTTPException(status_code=403, detail="Not authorized")
     
     crud_group.delete_group(db, group_id=group_id)

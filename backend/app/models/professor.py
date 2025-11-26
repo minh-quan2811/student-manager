@@ -7,7 +7,11 @@ class Professor(Base):
     __tablename__ = "professors"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True
+    )
     professor_id = Column(String, unique=True, index=True)
     faculty = Column(String)
     field = Column(String)

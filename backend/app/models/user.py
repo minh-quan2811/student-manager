@@ -20,5 +20,17 @@ class User(Base):
     role = Column(SQLEnum(UserRole), nullable=False)
     
     # Relationships
-    student = relationship("Student", back_populates="user", uselist=False)
-    professor = relationship("Professor", back_populates="user", uselist=False)
+    student = relationship(
+        "Student",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete",
+        passive_deletes=True
+    )
+    professor = relationship(
+        "Professor",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete",
+        passive_deletes=True
+    )

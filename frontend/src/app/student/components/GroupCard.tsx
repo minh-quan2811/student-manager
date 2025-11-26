@@ -1,4 +1,3 @@
-// frontend/src/app/student/components/GroupCard.tsx
 import { UserPlus, Users, Award } from 'lucide-react';
 import { colors, baseCard, primaryButton, badge, iconContainer } from '../styles/styles';
 

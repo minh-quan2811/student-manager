@@ -10,17 +10,13 @@ from app.utils.security import get_password_hash
 
 router = APIRouter()
 
-def generate_username(name: str, faculty: str) -> str:
-    """Generate username: firstname_faculty@research.edu"""
-    first_name = name.split()[0].lower()
-    faculty_short = faculty.lower().replace(' ', '')
-    return f"{first_name}_{faculty_short}@research.edu"
+def generate_username(professor_id: str) -> str:
+    """Generate username: professor_id@research.edu"""
+    return f"{professor_id.lower()}@research.edu"
 
-def generate_password(name: str, faculty: str) -> str:
-    """Generate password: firstname_faculty"""
-    first_name = name.split()[0].lower()
-    faculty_short = faculty.lower().replace(' ', '')
-    return f"{first_name}_{faculty_short}"
+def generate_password(professor_id: str) -> str:
+    """Generate password: professor_id"""
+    return professor_id.lower()
 
 
 # GET all professors
@@ -234,8 +230,8 @@ def create_professors_bulk(
                 continue
             
             # Generate credentials
-            username = generate_username(prof_data['name'], prof_data['faculty'])
-            password = generate_password(prof_data['name'], prof_data['faculty'])
+            username = generate_username(prof_data['professor_id'])
+            password = generate_password(prof_data['professor_id'])
             
             # Check if email already exists
             existing_user = db.query(User).filter(User.email == username).first()

@@ -621,16 +621,16 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
                     Important Notice
                   </h4>
                 </div>
-                <p style={{ margin: 0, color: '#92400e', fontSize: '0.8125rem', lineHeight: '1.5' }}>
-                  Credentials have been generated automatically. Users can log in with:
-                  <br />
-                  <strong>Username:</strong> firstname_faculty@research.edu
-                  <br />
-                  <strong>Password:</strong> firstname_faculty
-                  <br />
-                  <br />
-                  Please inform users to change their passwords after first login.
-                </p>
+              <p style={{ margin: 0, color: '#92400e', fontSize: '0.8125rem', lineHeight: '1.5' }}>
+                Credentials have been generated automatically. Users can log in with:
+                <br />
+                <strong>Username:</strong> {accountType === 'student' ? 'student_id' : 'professor_id'}@research.edu
+                <br />
+                <strong>Password:</strong> {accountType === 'student' ? 'student_id' : 'professor_id'}
+                <br />
+                <br />
+                Please inform users to change their passwords after first login.
+              </p>
               </div>
 
               <button

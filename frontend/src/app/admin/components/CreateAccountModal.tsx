@@ -37,12 +37,18 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
   if (!isOpen) return null;
 
   const generateCredentials = () => {
-    const firstName = formData.name.split(' ')[0].toLowerCase();
-    const facultyShort = formData.faculty.toLowerCase().replace(/\s+/g, '');
-    return {
-      username: `${firstName}_${facultyShort}@research.edu`,
-      password: `${firstName}_${facultyShort}`
-    };
+    if (accountType === 'student' && formData.student_id) {
+      return {
+        username: `${formData.student_id.toLowerCase()}@research.edu`,
+        password: formData.student_id.toLowerCase()
+      };
+    } else if (accountType === 'professor' && formData.professor_id) {
+      return {
+        username: `${formData.professor_id.toLowerCase()}@research.edu`,
+        password: formData.professor_id.toLowerCase()
+      };
+    }
+    return { username: '', password: '' };
   };
 
   const handleSubmit = async () => {
