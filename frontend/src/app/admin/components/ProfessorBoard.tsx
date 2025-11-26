@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Plus, X } from 'lucide-react';
+import { Upload, Plus } from 'lucide-react';
 import { professorsApi } from '../../../api';
 import type { ProfessorWithUser } from '../../../api/types';
 import ProfessorDetailModal from './modals/ProfessorDetailModal';
@@ -23,14 +23,6 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
   const getFilteredProfessors = () => {
     if (filterFaculty === 'all') return professors;
     return professors.filter(p => p.faculty === filterFaculty);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      alert(`CSV upload functionality would be implemented here for file: ${file.name}`);
-      e.target.value = '';
-    }
   };
 
   const handleSave = async () => {
@@ -126,7 +118,6 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
             ))}
           </select>
 
-          {/* 👇 CHANGED: Upload CSV is now a button */}
           <button
             onClick={() => setShowCSVModal(true)}
             style={{
@@ -266,7 +257,7 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
         ))}
       </div>
 
-{/* Edit Modal */}
+      {/* Edit Modal */}
       {selectedProfessor && editData && (
         <ProfessorDetailModal
           professor={selectedProfessor}
@@ -281,89 +272,57 @@ export default function ProfessorBoard({ professors, setProfessors }: ProfessorB
         />
       )}
 
-      {/* 👇 ADD THESE TWO NEW MODALS HERE */}
-      
-      {/* Create Account Modal */}
+      {/* Create Account Modal - Using API */}
       <CreateAccountModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         accountType="professor"
         onSubmit={async (accountData) => {
           try {
-            // First create the user account
-            const userResponse = await fetch('http://localhost:8000/api/v1/auth/register', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-              },
-              body: JSON.stringify({
-                email: accountData.email,
-                password: accountData.password,
-                name: accountData.name,
-                role: 'PROFESSOR'
-              })
-            });
-
-            if (!userResponse.ok) throw new Error('Failed to create user account');
-            const user = await userResponse.json();
-
-            // Then create the professor profile
-            const newProfessor = await professorsApi.create({
-              user_id: user.id,
-              professor_id: accountData.professor_id,
-              faculty: accountData.faculty,
-              field: accountData.field,
-              department: accountData.department,
-              research_areas: accountData.research_areas || [],
-              research_interests: [],
-              achievements: '',
-              publications: accountData.publications || 0,
-              bio: '',
-              available_slots: accountData.total_slots || 5,
-              total_slots: accountData.total_slots || 5
-            });
-
-            // Add to local state
+            const newProfessor = await professorsApi.createAccount(accountData);
             setProfessors([newProfessor, ...professors]);
             setShowCreateModal(false);
             alert('Professor account created successfully!');
-          } catch (error) {
+          } catch (error: any) {
             console.error('Failed to create professor:', error);
-            alert('Failed to create professor account. Please try again.');
+            alert(`Failed to create professor account: ${error.response?.data?.detail || error.message}`);
             throw error;
           }
         }}
       />
 
-      {/* CSV Upload Modal */}
+      {/* CSV Upload Modal - Using API */}
       <CSVUploadModal
         isOpen={showCSVModal}
         onClose={() => setShowCSVModal(false)}
         accountType="professor"
         onSubmit={async (professorsData) => {
           try {
-            const response = await fetch('http://localhost:8000/api/v1/professors/bulk', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-              },
-              body: JSON.stringify(professorsData)
-            });
-
-            if (!response.ok) throw new Error('Failed to create professors');
-
-            const result = await response.json();
+            const result = await professorsApi.createBulk(professorsData);
+            
+            // Check if any accounts were created
+            if (result.success === 0) {
+              const errorDetails = result.errors && result.errors.length > 0 
+                ? result.errors.join('\n') 
+                : 'No accounts were created. Please check the CSV format.';
+              throw new Error(errorDetails);
+            }
             
             // Refresh the professors list
             const updatedProfessors = await professorsApi.getAll();
             setProfessors(updatedProfessors);
             
             setShowCSVModal(false);
-            alert(`Successfully created ${result.success} professor accounts!`);
-          } catch (error) {
+            
+            // Show detailed success message
+            let message = `Successfully created ${result.success} professor account(s)!`;
+            if (result.failed > 0) {
+              message += `\n\n${result.failed} failed:\n${result.errors.join('\n')}`;
+            }
+            alert(message);
+          } catch (error: any) {
             console.error('Failed to create professors:', error);
+            alert(error.message || 'Failed to create any accounts. Please check the CSV format and try again.');
             throw error;
           }
         }}

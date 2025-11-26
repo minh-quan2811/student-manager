@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database import get_db
 from app.schemas.student import Student, StudentCreate, StudentUpdate, StudentWithUser
-from app.crud import student as crud_student
 from app.api.deps import get_current_user, get_current_admin
 from app.models.user import User, UserRole
 from app.models.student import Student as StudentModel
@@ -23,6 +22,179 @@ def generate_password(name: str, faculty: str) -> str:
     faculty_short = faculty.lower().replace(' ', '')
     return f"{first_name}_{faculty_short}"
 
+
+# GET all students
+@router.get("/", response_model=List[StudentWithUser])
+def get_students(
+    skip: int = 0,
+    limit: int = 100,
+    faculty: Optional[str] = Query(None),
+    year: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all students with optional filters"""
+    query = db.query(StudentModel).join(User)
+    
+    if faculty:
+        query = query.filter(StudentModel.faculty == faculty)
+    if year:
+        query = query.filter(StudentModel.year == year)
+    
+    students = query.offset(skip).limit(limit).all()
+    
+    # Manually construct response with user data
+    result = []
+    for student in students:
+        result.append({
+            **student.__dict__,
+            'name': student.user.name,
+            'email': student.user.email
+        })
+    
+    return result
+
+
+# GET single student by ID
+@router.get("/{student_id}", response_model=StudentWithUser)
+def get_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific student by ID"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    return {
+        **student.__dict__,
+        'name': student.user.name,
+        'email': student.user.email
+    }
+
+
+# CREATE single student (admin only)
+@router.post("/", response_model=StudentWithUser, status_code=status.HTTP_201_CREATED)
+def create_student(
+    student: StudentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Create a single student (admin only)"""
+    # Check if student_id already exists
+    existing_student = db.query(StudentModel).filter(
+        StudentModel.student_id == student.student_id
+    ).first()
+    
+    if existing_student:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Student ID {student.student_id} already exists"
+        )
+    
+    # Check if user_id exists and is a student
+    user = db.query(User).filter(User.id == student.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must have student role"
+        )
+    
+    # Check if user already has a student profile
+    existing_profile = db.query(StudentModel).filter(
+        StudentModel.user_id == student.user_id
+    ).first()
+    
+    if existing_profile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already has a student profile"
+        )
+    
+    # Create student profile
+    db_student = StudentModel(
+        user_id=student.user_id,
+        student_id=student.student_id,
+        gpa=student.gpa,
+        major=student.major,
+        faculty=student.faculty,
+        year=student.year,
+        skills=student.skills,
+        bio=student.bio or '',
+        looking_for_group=student.looking_for_group
+    )
+    
+    db.add(db_student)
+    db.commit()
+    db.refresh(db_student)
+    
+    return {
+        **db_student.__dict__,
+        'name': user.name,
+        'email': user.email
+    }
+
+
+# UPDATE student
+@router.put("/{student_id}", response_model=StudentWithUser)
+def update_student(
+    student_id: int,
+    student_data: StudentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Update a student (admin only)"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Update fields
+    update_data = student_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+    
+    db.commit()
+    db.refresh(student)
+    
+    return {
+        **student.__dict__,
+        'name': student.user.name,
+        'email': student.user.email
+    }
+
+
+# DELETE student
+@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Delete a student (admin only)"""
+    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Delete the user (which will cascade delete the student profile if configured)
+    user = db.query(User).filter(User.id == student.user_id).first()
+    if user:
+        db.delete(user)
+    
+    db.commit()
+    return None
+
+
+# BULK CREATE students
 @router.post("/bulk", response_model=Dict[str, Any])
 def create_students_bulk(
     students_data: List[Dict[str, Any]],
@@ -124,103 +296,3 @@ def create_students_bulk(
         'accounts': created_accounts,
         'errors': errors
     }
-
-
-# Add CRUD endpoints for students
-@router.get("/", response_model=List[StudentWithUser])
-def get_students(
-    skip: int = 0,
-    limit: int = 100,
-    faculty: Optional[str] = Query(None),
-    year: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get all students with optional filters"""
-    query = db.query(StudentModel).join(User)
-    
-    if faculty:
-        query = query.filter(StudentModel.faculty == faculty)
-    if year:
-        query = query.filter(StudentModel.year == year)
-    
-    students = query.offset(skip).limit(limit).all()
-    
-    # Manually construct response with user data
-    result = []
-    for student in students:
-        result.append({
-            **student.__dict__,
-            'name': student.user.name,
-            'email': student.user.email
-        })
-    
-    return result
-
-
-@router.get("/{student_id}", response_model=StudentWithUser)
-def get_student(
-    student_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get a specific student by ID"""
-    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    return {
-        **student.__dict__,
-        'name': student.user.name,
-        'email': student.user.email
-    }
-
-
-@router.put("/{student_id}", response_model=StudentWithUser)
-def update_student(
-    student_id: int,
-    student_data: StudentUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
-):
-    """Update a student (admin only)"""
-    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Update fields
-    update_data = student_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(student, field, value)
-    
-    db.commit()
-    db.refresh(student)
-    
-    return {
-        **student.__dict__,
-        'name': student.user.name,
-        'email': student.user.email
-    }
-
-
-@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_student(
-    student_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
-):
-    """Delete a student (admin only)"""
-    student = db.query(StudentModel).filter(StudentModel.id == student_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Delete the user (which will cascade delete the student profile)
-    user = db.query(User).filter(User.id == student.user_id).first()
-    if user:
-        db.delete(user)
-    
-    db.commit()
-    return None

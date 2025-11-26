@@ -61,15 +61,21 @@ export default function CreateAccountModal({ isOpen, onClose, accountType, onSub
       return;
     }
 
-    const creds = generateCredentials();
-    setGeneratedCreds(creds);
-
-    await onSubmit({
-      ...formData,
-      email: creds.username,
-      password: creds.password,
-      role: accountType === 'student' ? 'student' : 'professor' // Use lowercase to match backend enum
-    });
+    try {
+      const creds = generateCredentials();
+      
+      await onSubmit({
+        ...formData,
+        email: creds.username,
+        password: creds.password,
+        role: accountType
+      });
+      
+      setGeneratedCreds(creds);
+    } catch (error) {
+      console.error('Failed to create account:', error);
+      alert('Failed to create account. Please try again.');
+    }
   };
 
   const handleAddSkill = () => {

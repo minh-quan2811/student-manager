@@ -20,7 +20,8 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
   const [filterYear, setFilterYear] = useState('all');
   const [editData, setEditData] = useState<StudentWithUser | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [showCSVModal, setShowCSVModal] = useState<boolean>(false);  
+  const [showCSVModal, setShowCSVModal] = useState<boolean>(false);
+  
   const getFilteredStudents = () => {
     let filtered = students;
     
@@ -147,7 +148,6 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
             ))}
           </select>
 
-          {/* 👇 CHANGED: Upload CSV is now a button that opens modal */}
           <button
             onClick={() => setShowCSVModal(true)}
             style={{
@@ -170,7 +170,6 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
             Upload CSV
           </button>
 
-          {/* 👇 CHANGED: Create button now opens modal */}
           <button
             onClick={() => setShowCreateModal(true)}
             style={{
@@ -333,84 +332,57 @@ export default function StudentBoard({ students, setStudents }: StudentBoardProp
         />
       )}
       
-      {/* Create Account Modal */}
+      {/* Create Account Modal - Using API */}
       <CreateAccountModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         accountType="student"
         onSubmit={async (accountData) => {
           try {
-            // First create the user account
-            const userResponse = await fetch('http://localhost:8000/api/v1/auth/register', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-              },
-              body: JSON.stringify({
-                email: accountData.email,
-                password: accountData.password,
-                name: accountData.name,
-                role: 'STUDENT'
-              })
-            });
-
-            if (!userResponse.ok) throw new Error('Failed to create user account');
-            const user = await userResponse.json();
-
-            // Then create the student profile
-            const newStudent = await studentsApi.create({
-              user_id: user.id,
-              student_id: accountData.student_id,
-              gpa: accountData.gpa,
-              major: accountData.major,
-              faculty: accountData.faculty,
-              year: accountData.year,
-              skills: accountData.skills || [],
-              bio: '',
-              looking_for_group: true
-            });
-
-            // Add to local state
+            const newStudent = await studentsApi.createAccount(accountData);
             setStudents([newStudent, ...students]);
             setShowCreateModal(false);
             alert('Student account created successfully!');
-          } catch (error) {
+          } catch (error: any) {
             console.error('Failed to create student:', error);
-            alert('Failed to create student account. Please try again.');
+            alert(`Failed to create student account: ${error.response?.data?.detail || error.message}`);
             throw error;
           }
         }}
       />
 
-      {/* CSV Upload Modal */}
+      {/* CSV Upload Modal - Using API */}
       <CSVUploadModal
         isOpen={showCSVModal}
         onClose={() => setShowCSVModal(false)}
         accountType="student"
         onSubmit={async (studentsData) => {
           try {
-            const response = await fetch('http://localhost:8000/api/v1/students/bulk', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-              },
-              body: JSON.stringify(studentsData)
-            });
-
-            if (!response.ok) throw new Error('Failed to create students');
-
-            const result = await response.json();
+            const result = await studentsApi.createBulk(studentsData);
+            
+            // Check if any accounts were created
+            if (result.success === 0) {
+              const errorDetails = result.errors && result.errors.length > 0 
+                ? result.errors.join('\n') 
+                : 'No accounts were created. Please check the CSV format.';
+              throw new Error(errorDetails);
+            }
             
             // Refresh the students list
             const updatedStudents = await studentsApi.getAll();
             setStudents(updatedStudents);
             
             setShowCSVModal(false);
-            alert(`Successfully created ${result.success} student accounts!`);
-          } catch (error) {
+            
+            // Show detailed success message
+            let message = `Successfully created ${result.success} student account(s)!`;
+            if (result.failed > 0) {
+              message += `\n\n${result.failed} failed:\n${result.errors.join('\n')}`;
+            }
+            alert(message);
+          } catch (error: any) {
             console.error('Failed to create students:', error);
+            alert(error.message || 'Failed to create any accounts. Please check the CSV format and try again.');
             throw error;
           }
         }}

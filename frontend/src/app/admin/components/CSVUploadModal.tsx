@@ -26,11 +26,12 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
     const headers = lines[0].split(',').map(h => h.trim());
     const data: any[] = [];
 
+    console.log('CSV Headers:', headers);
+
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      // Simple CSV parsing - split by comma
       const values = line.split(',').map(v => v.trim());
       const row: any = {};
       
@@ -46,6 +47,7 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
       }
     }
 
+    console.log('Parsed rows:', data.length);
     return data;
   };
 
@@ -109,28 +111,29 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
+        console.log('Raw CSV:', text);
         const data = parseCSV(text);
         
-        console.log('Parsed CSV data:', data); // Debug log
+        console.log('Parsed CSV data:', data);
         
         // Process the data
         const processedData = data.map(row => {
           const processed: any = { ...row };
           
           // Parse skills/research_areas from semicolon-separated strings
-          if (row.skills) {
+          if (row.skills && row.skills !== '') {
             processed.skills = row.skills.split(';').map((s: string) => s.trim()).filter(Boolean);
           } else {
             processed.skills = [];
           }
           
-          if (row.research_areas) {
+          if (row.research_areas && row.research_areas !== '') {
             processed.research_areas = row.research_areas.split(';').map((s: string) => s.trim()).filter(Boolean);
           } else {
             processed.research_areas = [];
           }
           
-          if (row.research_interests) {
+          if (row.research_interests && row.research_interests !== '') {
             processed.research_interests = row.research_interests.split(';').map((s: string) => s.trim()).filter(Boolean);
           } else {
             processed.research_interests = [];
@@ -142,16 +145,26 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
           if (row.total_slots) processed.total_slots = parseInt(row.total_slots) || 5;
           
           // Parse boolean
-          if (row.looking_for_group !== undefined) {
+          if (row.looking_for_group !== undefined && row.looking_for_group !== '') {
             processed.looking_for_group = row.looking_for_group === 'true' || row.looking_for_group === '1' || row.looking_for_group === 'TRUE';
           } else {
             processed.looking_for_group = true;
           }
           
+          // Ensure bio is a string
+          if (!processed.bio) {
+            processed.bio = '';
+          }
+          
+          // Ensure achievements is a string
+          if (!processed.achievements) {
+            processed.achievements = '';
+          }
+          
           return processed;
         });
 
-        console.log('Processed data:', processedData); // Debug log
+        console.log('Processed data:', processedData);
 
         const validationErrors = accountType === 'student' 
           ? validateStudentData(processedData)
@@ -176,13 +189,31 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
 
     setIsProcessing(true);
     try {
-      console.log('Submitting data:', parsedData); // Debug log
+      console.log('Submitting data to backend:', parsedData);
       await onSubmit(parsedData);
       setCreatedCount(parsedData.length);
       setUploadComplete(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submit error:', error);
-      setErrors(['Failed to create accounts. Please try again.']);
+      
+      // Try to extract error message
+      let errorMessage = 'Failed to create accounts. Please try again.';
+      
+      if (error.response && error.response.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = typeof error.response.data.detail === 'string' 
+            ? error.response.data.detail 
+            : JSON.stringify(error.response.data.detail);
+        } else if (error.response.data.errors) {
+          errorMessage = error.response.data.errors.join(', ');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -192,21 +223,31 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
     let csvContent = '';
     
     if (accountType === 'student') {
+      // Header row - MUST match backend expected fields
       csvContent = 'name,student_id,gpa,major,faculty,year,skills,bio,looking_for_group\n';
-      csvContent += 'John Doe,S001,3.8,Computer Science,FAST,2021,Python;JavaScript;React,Passionate about AI,true\n';
-      csvContent += 'Jane Smith,S002,3.5,Electrical Engineering,FAST,2020,MATLAB;Circuit Design,Interested in IoT,true';
+      
+      // Example rows with proper format
+      csvContent += 'Nguyen Van A,S001,3.8,Computer Science,FAST,2021,Python;JavaScript;React,Passionate about AI and ML,true\n';
+      csvContent += 'Tran Thi B,S002,3.5,Electrical Engineering,FAST,2020,MATLAB;Circuit Design;PCB,Interested in IoT systems,true\n';
+      csvContent += 'Le Van C,S003,3.9,Computer Science,FAST,2022,Java;Spring Boot;Docker,Backend development enthusiast,true\n';
     } else {
+      // Header row - MUST match backend expected fields
       csvContent = 'name,professor_id,faculty,field,department,research_areas,research_interests,achievements,publications,bio,total_slots\n';
-      csvContent += 'Dr. John Doe,P001,FAST,Machine Learning,Computer Science,AI;Deep Learning;Computer Vision,Neural Networks;Image Processing,Published 20+ papers,25,Expert in AI,5\n';
-      csvContent += 'Dr. Jane Smith,P002,FAST,Power Electronics,Electrical Engineering,Control Systems;Automation,Renewable Energy,Award winner,15,Specialist in automation,4';
+      
+      // Example rows with proper format
+      csvContent += 'Dr. Nguyen Van A,P001,FAST,Machine Learning,Computer Science,AI;Deep Learning;Computer Vision,Neural Networks;NLP,IEEE Fellow and multiple awards,25,Expert in AI research and neural networks,5\n';
+      csvContent += 'Dr. Tran Thi B,P002,FAST,Power Electronics,Electrical Engineering,Control Systems;Automation;Robotics,Renewable Energy;Smart Grids,Best paper award 2023,18,Specialist in power systems and automation,4\n';
+      csvContent += 'Dr. Le Van C,P003,FAST,Software Engineering,Computer Science,DevOps;Cloud Computing;Microservices,Containers;CI/CD,Industry recognition,22,Cloud architecture and DevOps expert,6\n';
     }
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${accountType}_template.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   };
 
@@ -282,20 +323,22 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
                   CSV Format Instructions:
                 </h4>
                 <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#1e3a8a', fontSize: '0.8125rem', lineHeight: '1.6' }}>
-                  <li>First row must contain column headers</li>
+                  <li>First row MUST contain column headers (download template to see exact format)</li>
                   <li>Use semicolons (;) to separate multiple values in skills/research_areas</li>
-                  <li>Username format: firstname_faculty@research.edu</li>
-                  <li>Password format: firstname_faculty</li>
+                  <li>Do NOT use quotes around field values</li>
+                  <li>Each row must have the same number of commas as the header</li>
                   {accountType === 'student' && (
                     <>
                       <li>Required fields: name, student_id, gpa, major, faculty, year</li>
                       <li>GPA must be between 0 and 4.0</li>
+                      <li>looking_for_group: use "true" or "false"</li>
                     </>
                   )}
                   {accountType === 'professor' && (
                     <>
                       <li>Required fields: name, professor_id, faculty, field, department</li>
-                      <li>Publications and total_slots should be numbers</li>
+                      <li>Publications and total_slots must be numbers</li>
+                      <li>Default total_slots is 5 if not specified</li>
                     </>
                   )}
                 </ul>
@@ -322,7 +365,7 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
                 }}
               >
                 <FileText size={18} />
-                Download CSV Template
+                Download CSV Template (Recommended!)
               </button>
 
               {/* File Upload */}
@@ -441,7 +484,7 @@ export default function CSVUploadModal({ isOpen, onClose, accountType, onSubmit 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <AlertCircle size={18} color="#dc2626" />
                     <h4 style={{ margin: 0, color: '#dc2626', fontSize: '0.875rem', fontWeight: '600' }}>
-                      Validation Errors ({errors.length})
+                      Errors ({errors.length})
                     </h4>
                   </div>
                   <div style={{

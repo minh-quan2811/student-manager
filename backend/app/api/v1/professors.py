@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database import get_db
 from app.schemas.professor import Professor, ProfessorCreate, ProfessorUpdate, ProfessorWithUser
-from app.crud import professor as crud_professor
 from app.api.deps import get_current_user, get_current_admin
 from app.models.user import User, UserRole
 from app.models.professor import Professor as ProfessorModel
@@ -23,6 +22,185 @@ def generate_password(name: str, faculty: str) -> str:
     faculty_short = faculty.lower().replace(' ', '')
     return f"{first_name}_{faculty_short}"
 
+
+# GET all professors
+@router.get("/", response_model=List[ProfessorWithUser])
+def get_professors(
+    skip: int = 0,
+    limit: int = 100,
+    faculty: Optional[str] = Query(None),
+    research_area: Optional[str] = Query(None),
+    available_only: Optional[bool] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all professors with optional filters"""
+    query = db.query(ProfessorModel).join(User)
+    
+    if faculty:
+        query = query.filter(ProfessorModel.faculty == faculty)
+    if research_area:
+        query = query.filter(ProfessorModel.research_areas.contains([research_area]))
+    if available_only:
+        query = query.filter(ProfessorModel.available_slots > 0)
+    
+    professors = query.offset(skip).limit(limit).all()
+    
+    # Manually construct response with user data
+    result = []
+    for professor in professors:
+        result.append({
+            **professor.__dict__,
+            'name': professor.user.name,
+            'email': professor.user.email
+        })
+    
+    return result
+
+
+# GET single professor by ID
+@router.get("/{professor_id}", response_model=ProfessorWithUser)
+def get_professor(
+    professor_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific professor by ID"""
+    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
+    
+    if not professor:
+        raise HTTPException(status_code=404, detail="Professor not found")
+    
+    return {
+        **professor.__dict__,
+        'name': professor.user.name,
+        'email': professor.user.email
+    }
+
+
+# CREATE single professor (admin only)
+@router.post("/", response_model=ProfessorWithUser, status_code=status.HTTP_201_CREATED)
+def create_professor(
+    professor: ProfessorCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Create a single professor (admin only)"""
+    # Check if professor_id already exists
+    existing_professor = db.query(ProfessorModel).filter(
+        ProfessorModel.professor_id == professor.professor_id
+    ).first()
+    
+    if existing_professor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Professor ID {professor.professor_id} already exists"
+        )
+    
+    # Check if user_id exists and is a professor
+    user = db.query(User).filter(User.id == professor.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if user.role != UserRole.PROFESSOR:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must have professor role"
+        )
+    
+    # Check if user already has a professor profile
+    existing_profile = db.query(ProfessorModel).filter(
+        ProfessorModel.user_id == professor.user_id
+    ).first()
+    
+    if existing_profile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already has a professor profile"
+        )
+    
+    # Create professor profile
+    db_professor = ProfessorModel(
+        user_id=professor.user_id,
+        professor_id=professor.professor_id,
+        faculty=professor.faculty,
+        field=professor.field,
+        department=professor.department,
+        research_areas=professor.research_areas,
+        research_interests=professor.research_interests or [],
+        achievements=professor.achievements or '',
+        publications=professor.publications,
+        bio=professor.bio or '',
+        available_slots=professor.available_slots,
+        total_slots=professor.total_slots
+    )
+    
+    db.add(db_professor)
+    db.commit()
+    db.refresh(db_professor)
+    
+    return {
+        **db_professor.__dict__,
+        'name': user.name,
+        'email': user.email
+    }
+
+
+# UPDATE professor
+@router.put("/{professor_id}", response_model=ProfessorWithUser)
+def update_professor(
+    professor_id: int,
+    professor_data: ProfessorUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Update a professor (admin only)"""
+    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
+    
+    if not professor:
+        raise HTTPException(status_code=404, detail="Professor not found")
+    
+    # Update fields
+    update_data = professor_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(professor, field, value)
+    
+    db.commit()
+    db.refresh(professor)
+    
+    return {
+        **professor.__dict__,
+        'name': professor.user.name,
+        'email': professor.user.email
+    }
+
+
+# DELETE professor
+@router.delete("/{professor_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_professor(
+    professor_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Delete a professor (admin only)"""
+    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
+    
+    if not professor:
+        raise HTTPException(status_code=404, detail="Professor not found")
+    
+    # Delete the user (which will cascade delete the professor profile if configured)
+    user = db.query(User).filter(User.id == professor.user_id).first()
+    if user:
+        db.delete(user)
+    
+    db.commit()
+    return None
+
+
+# BULK CREATE professors
 @router.post("/bulk", response_model=Dict[str, Any])
 def create_professors_bulk(
     professors_data: List[Dict[str, Any]],
@@ -128,106 +306,3 @@ def create_professors_bulk(
         'accounts': created_accounts,
         'errors': errors
     }
-
-
-# Add CRUD endpoints for professors
-@router.get("/", response_model=List[ProfessorWithUser])
-def get_professors(
-    skip: int = 0,
-    limit: int = 100,
-    faculty: Optional[str] = Query(None),
-    research_area: Optional[str] = Query(None),
-    available_only: Optional[bool] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get all professors with optional filters"""
-    query = db.query(ProfessorModel).join(User)
-    
-    if faculty:
-        query = query.filter(ProfessorModel.faculty == faculty)
-    if research_area:
-        query = query.filter(ProfessorModel.research_areas.contains([research_area]))
-    if available_only:
-        query = query.filter(ProfessorModel.available_slots > 0)
-    
-    professors = query.offset(skip).limit(limit).all()
-    
-    # Manually construct response with user data
-    result = []
-    for professor in professors:
-        result.append({
-            **professor.__dict__,
-            'name': professor.user.name,
-            'email': professor.user.email
-        })
-    
-    return result
-
-
-@router.get("/{professor_id}", response_model=ProfessorWithUser)
-def get_professor(
-    professor_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get a specific professor by ID"""
-    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
-    
-    if not professor:
-        raise HTTPException(status_code=404, detail="Professor not found")
-    
-    return {
-        **professor.__dict__,
-        'name': professor.user.name,
-        'email': professor.user.email
-    }
-
-
-@router.put("/{professor_id}", response_model=ProfessorWithUser)
-def update_professor(
-    professor_id: int,
-    professor_data: ProfessorUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
-):
-    """Update a professor (admin only)"""
-    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
-    
-    if not professor:
-        raise HTTPException(status_code=404, detail="Professor not found")
-    
-    # Update fields
-    update_data = professor_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(professor, field, value)
-    
-    db.commit()
-    db.refresh(professor)
-    
-    return {
-        **professor.__dict__,
-        'name': professor.user.name,
-        'email': professor.user.email
-    }
-
-
-@router.delete("/{professor_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_professor(
-    professor_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
-):
-    """Delete a professor (admin only)"""
-    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
-    
-    if not professor:
-        raise HTTPException(status_code=404, detail="Professor not found")
-    
-    # Delete the user (which will cascade delete the professor profile)
-    user = db.query(User).filter(User.id == professor.user_id).first()
-    if user:
-        db.delete(user)
-    
-    db.commit()
-    return None
