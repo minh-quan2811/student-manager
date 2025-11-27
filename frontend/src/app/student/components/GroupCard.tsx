@@ -17,10 +17,12 @@ interface Group {
 interface GroupCardProps {
   group: Group;
   onJoinRequest: (id: number) => void;
+  currentStudentId?: number;
 }
 
-export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
+export default function GroupCard({ group, onJoinRequest, currentStudentId }: GroupCardProps) {
   const isFull = group.currentMembers >= group.maxMembers;
+  const isCurrentUserLeader = group.leaderId === currentStudentId;
 
   return (
     <div
@@ -118,7 +120,7 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
         </div>
       </div>
 
-      {!isFull && (
+      {!isFull && !isCurrentUserLeader && (
         <button
           onClick={() => onJoinRequest(group.id)}
           style={{
@@ -137,6 +139,21 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
           <UserPlus size={16} />
           Request to Join
         </button>
+      )}
+
+      {isCurrentUserLeader && (
+        <div style={{
+          padding: '0.75rem',
+          background: colors.success.light,
+          color: colors.success.text,
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontWeight: '600',
+          fontSize: '0.875rem',
+          border: `2px solid ${colors.success.border}`
+        }}>
+          You are the leader of this group
+        </div>
       )}
     </div>
   );

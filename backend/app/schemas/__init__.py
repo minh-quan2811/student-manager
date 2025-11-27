@@ -9,6 +9,8 @@ from app.schemas.group import (
     GroupMember,
     GroupInvitation,
     GroupInvitationCreate,
+    GroupJoinRequest,
+    GroupJoinRequestCreate,
 )
 
 __all__ = [
@@ -34,4 +36,6 @@ __all__ = [
     "GroupMember",
     "GroupInvitation",
     "GroupInvitationCreate",
+    "GroupJoinRequest",
+    "GroupJoinRequestCreate",
 ]

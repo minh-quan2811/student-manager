@@ -2,7 +2,7 @@ from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.professor import Professor
 from app.models.research import ResearchPaper, research_professors, research_team_members
-from app.models.group import Group, GroupMember, GroupInvitation
+from app.models.group import Group, GroupMember, GroupInvitation, GroupJoinRequest
 
 __all__ = [
     "User",
@@ -15,4 +15,5 @@ __all__ = [
     "Group",
     "GroupMember",
     "GroupInvitation",
+    "GroupJoinRequest",
 ]

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Group, GroupCreate, GroupUpdate, GroupInvitation, GroupInvitationCreate } from './types';
+import type { Group, GroupCreate, GroupUpdate, GroupInvitation, GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate } from './types';
 
 export const groupsApi = {
   // Get all groups
@@ -64,6 +64,32 @@ export const groupsApi = {
     updateStatus: async (invitationId: number, status: string): Promise<{ message: string }> => {
       const response = await apiClient.put<{ message: string }>(
         `/groups/invitations/${invitationId}/status`,
+        null,
+        { params: { status } }
+      );
+      return response.data;
+    },
+  },
+
+  joinRequests: {
+    // Create join request
+    create: async (request: GroupJoinRequestCreate): Promise<GroupJoinRequest> => {
+      const response = await apiClient.post<GroupJoinRequest>('/groups/join-requests/', request);
+      return response.data;
+    },
+
+    // Get join requests for a group (leader only)
+    getForGroup: async (groupId: number): Promise<GroupJoinRequest[]> => {
+      const response = await apiClient.get<GroupJoinRequest[]>(
+        `/groups/join-requests/group/${groupId}`
+      );
+      return response.data;
+    },
+
+    // Update join request status
+    updateStatus: async (requestId: number, status: string): Promise<{ message: string }> => {
+      const response = await apiClient.put<{ message: string }>(
+        `/groups/join-requests/${requestId}/status`,
         null,
         { params: { status } }
       );

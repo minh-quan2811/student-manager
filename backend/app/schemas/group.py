@@ -66,3 +66,21 @@ class GroupInvitation(GroupInvitationBase):
     
     class Config:
         from_attributes = True
+
+class GroupJoinRequestBase(BaseModel):
+    group_id: int
+    student_id: int
+    message: str
+
+
+class GroupJoinRequestCreate(GroupJoinRequestBase):
+    pass
+
+
+class GroupJoinRequest(GroupJoinRequestBase):
+    id: int
+    status: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

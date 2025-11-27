@@ -231,3 +231,18 @@ export interface ResearchQueryParams {
   faculty?: string;
   year?: number;
 }
+
+export interface GroupJoinRequest {
+  id: number;
+  group_id: number;
+  student_id: number;
+  message: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+}
+
+export interface GroupJoinRequestCreate {
+  group_id: number;
+  student_id: number;
+  message: string;
+}

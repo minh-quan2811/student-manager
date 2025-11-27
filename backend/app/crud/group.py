@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models.group import Group, GroupMember, GroupInvitation
-from app.schemas.group import GroupCreate, GroupUpdate, GroupInvitationCreate
+from app.models.group import Group, GroupMember, GroupInvitation, GroupJoinRequest
+from app.schemas.group import GroupCreate, GroupUpdate, GroupInvitationCreate, GroupJoinRequestCreate
 from typing import List, Optional
 
 
@@ -101,3 +101,26 @@ def update_invitation_status(db: Session, invitation_id: int, status: str) -> Op
         db.commit()
         db.refresh(invitation)
     return invitation
+
+def create_join_request(db: Session, join_request: GroupJoinRequestCreate) -> GroupJoinRequest:
+    db_request = GroupJoinRequest(**join_request.model_dump())
+    db.add(db_request)
+    db.commit()
+    db.refresh(db_request)
+    return db_request
+
+
+def get_join_requests_for_group(db: Session, group_id: int) -> List[GroupJoinRequest]:
+    return db.query(GroupJoinRequest).filter(
+        GroupJoinRequest.group_id == group_id,
+        GroupJoinRequest.status == "pending"
+    ).all()
+
+
+def update_join_request_status(db: Session, request_id: int, status: str) -> Optional[GroupJoinRequest]:
+    join_request = db.query(GroupJoinRequest).filter(GroupJoinRequest.id == request_id).first()
+    if join_request:
+        join_request.status = status
+        db.commit()
+        db.refresh(join_request)
+    return join_request

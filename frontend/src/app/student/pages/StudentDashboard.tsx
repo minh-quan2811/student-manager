@@ -10,7 +10,7 @@ import MyGroupCard from '../components/MyGroupCard';
 import ChatSidebar from '../components/ChatSidebar';
 import CreateGroupModal from '../components/CreateGroupModal';
 import { studentsApi, professorsApi, groupsApi } from '../../../api';
-import type { StudentWithUser, ProfessorWithUser, Group, GroupInvitation } from '../../../api/types';
+import type { StudentWithUser, ProfessorWithUser, Group, GroupInvitation, GroupJoinRequest } from '../../../api/types';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
 
@@ -50,49 +50,76 @@ export default function StudentDashboard() {
   // Current student ID
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
 
+  // State for join requests and student-group mapping
+  const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
+  const [groupLeaderNames, setGroupLeaderNames] = useState<Map<number, string>>(new Map());
+
   // Fetch all data on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch students, professors, and groups in parallel
         const [studentsData, professorsData, groupsData] = await Promise.all([
           studentsApi.getAll(),
           professorsApi.getAll(),
           groupsApi.getAll()
         ]);
 
-        setStudents(studentsData);
+        // Find current student
+        let currentStudent = null;
+        if (user) {
+          currentStudent = studentsData.find(s => s.user_id === user.id);
+          if (currentStudent) {
+            setCurrentStudentId(currentStudent.id);
+          }
+        }
+
+        // Create a map of student IDs to names for quick lookup
+        const studentNameMap = new Map(studentsData.map(s => [s.id, s.name]));
+        
+        // Create leader name map for groups
+        const leaderMap = new Map<number, string>();
+        groupsData.forEach(group => {
+          const leaderName = studentNameMap.get(group.leader_id) || 'Unknown Leader';
+          leaderMap.set(group.id, leaderName);
+        });
+        setGroupLeaderNames(leaderMap);
+
+        // Filter out current student from student list
+        const filteredStudentsData = currentStudent 
+          ? studentsData.filter(s => s.id !== currentStudent.id)
+          : studentsData;
+
+        setStudents(studentsData); // Keep full list for reference
         setProfessors(professorsData);
         setGroups(groupsData);
         
-        setFilteredStudents(studentsData);
+        setFilteredStudents(filteredStudentsData); // Show filtered list
         setFilteredProfessors(professorsData);
         setFilteredGroups(groupsData);
 
-        // Find current student
-        if (user) {
-          const currentStudent = studentsData.find(s => s.user_id === user.id);
-          if (currentStudent) {
-            setCurrentStudentId(currentStudent.id);
-            
-            // Fetch user's groups and invitations
-            const userGroups = groupsData.filter(g => 
-              g.leader_id === currentStudent.id || 
-              // Note: We'll need to check members in a more sophisticated way
-              // For now, just filter by leader
-              false
-            );
-            setMyGroups(userGroups);
+        if (currentStudent) {
+          // Fetch user's groups
+          const userGroups = groupsData.filter(g => g.leader_id === currentStudent.id);
+          setMyGroups(userGroups);
 
-            // Fetch invitations
-            try {
-              const invitationsData = await groupsApi.invitations.getForStudent(currentStudent.id);
-              setInvitations(invitationsData);
-            } catch (error) {
-              console.error('Failed to fetch invitations:', error);
-            }
+          // Fetch invitations
+          try {
+            const invitationsData = await groupsApi.invitations.getForStudent(currentStudent.id);
+            setInvitations(invitationsData);
+          } catch (error) {
+            console.error('Failed to fetch invitations:', error);
+          }
+
+          // Fetch join requests for user's groups
+          try {
+            const allJoinRequests = await Promise.all(
+              userGroups.map(g => groupsApi.joinRequests.getForGroup(g.id))
+            );
+            setJoinRequests(allJoinRequests.flat());
+          } catch (error) {
+            console.error('Failed to fetch join requests:', error);
           }
         }
       } catch (error) {
@@ -211,16 +238,51 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleGroupJoinRequest = (groupId: number) => {
+  const handleGroupJoinRequest = async (groupId: number) => {
+    if (!currentStudentId) {
+      alert('Student ID not found');
+      return;
+    }
+
     const group = groups.find(g => g.id === groupId);
-    // In a real implementation, this would create a join request
-    setChatMessages([
-      ...chatMessages,
-      {
-        role: 'assistant',
-        content: `Join request sent to "${group?.name || 'group'}" successfully! The group leader will review your request.`
-      }
-    ]);
+    
+    // Check if user is the leader
+    if (group && group.leader_id === currentStudentId) {
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: `You are already the leader of "${group.name}"! You cannot send a join request to your own group.`
+        }
+      ]);
+      return;
+    }
+
+    try {
+      await groupsApi.joinRequests.create({
+        group_id: groupId,
+        student_id: currentStudentId,
+        message: 'I would like to join your research group.'
+      });
+
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: `Join request sent to "${group?.name}" successfully! The group leader will review your request.`
+        }
+      ]);
+    } catch (error: any) {
+      console.error('Failed to send join request:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to send join request. Please try again.';
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: errorMessage
+        }
+      ]);
+    }
   };
 
   const handleProfessorMentorshipRequest = (professorId: number) => {
@@ -480,7 +542,7 @@ export default function StudentDashboard() {
                     id: group.id,
                     name: group.name,
                     leaderId: group.leader_id,
-                    leaderName: 'Group Leader', // You'd need to fetch this
+                    leaderName: groupLeaderNames.get(group.id) || 'Unknown Leader',
                     description: group.description,
                     neededSkills: group.needed_skills,
                     currentMembers: group.current_members,
@@ -488,7 +550,8 @@ export default function StudentDashboard() {
                     hasMentor: group.has_mentor,
                     mentorName: group.mentor_id ? 'Mentor' : undefined
                   }} 
-                  onJoinRequest={handleGroupJoinRequest} 
+                  onJoinRequest={handleGroupJoinRequest}
+                  currentStudentId={currentStudentId || undefined}
                 />
               ))}
             </div>
