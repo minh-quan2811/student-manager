@@ -46,6 +46,10 @@ class GroupInvitation(Base):
     message = Column(String)
     status = Column(String, default="pending")  # pending, accepted, rejected
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    group = relationship("Group")
+    student = relationship("Student")
 
 class GroupJoinRequest(Base):
     __tablename__ = "group_join_requests"

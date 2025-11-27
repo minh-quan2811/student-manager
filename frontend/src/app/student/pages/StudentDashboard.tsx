@@ -9,8 +9,9 @@ import ProfessorCard from '../components/ProfessorCard';
 import MyGroupCard from '../components/MyGroupCard';
 import ChatSidebar from '../components/ChatSidebar';
 import CreateGroupModal from '../components/CreateGroupModal';
-import { studentsApi, professorsApi, groupsApi } from '../../../api';
-import type { StudentWithUser, ProfessorWithUser, Group, GroupInvitation, GroupJoinRequest } from '../../../api/types';
+import { studentsApi, professorsApi, groupsApi, notificationsApi } from '../../../api';
+import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
+import type { Notification } from '../../../api/notifications';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
 
@@ -36,7 +37,8 @@ export default function StudentDashboard() {
   const [professors, setProfessors] = useState<ProfessorWithUser[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
-  const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // Filtered data states
   const [filteredStudents, setFilteredStudents] = useState<StudentWithUser[]>([]);
@@ -46,96 +48,95 @@ export default function StudentDashboard() {
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [hasGroup, setHasGroup] = useState(false);
 
   // Current student ID
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
-
-  // State for join requests and student-group mapping
-  const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
   const [groupLeaderNames, setGroupLeaderNames] = useState<Map<number, string>>(new Map());
 
   // Fetch all data on mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        const [studentsData, professorsData, groupsData] = await Promise.all([
-          studentsApi.getAll(),
-          professorsApi.getAll(),
-          groupsApi.getAll()
-        ]);
-
-        // Find current student
-        let currentStudent = null;
-        if (user) {
-          currentStudent = studentsData.find(s => s.user_id === user.id);
-          if (currentStudent) {
-            setCurrentStudentId(currentStudent.id);
-          }
-        }
-
-        // Create a map of student IDs to names for quick lookup
-        const studentNameMap = new Map(studentsData.map(s => [s.id, s.name]));
-        
-        // Create leader name map for groups
-        const leaderMap = new Map<number, string>();
-        groupsData.forEach(group => {
-          const leaderName = studentNameMap.get(group.leader_id) || 'Unknown Leader';
-          leaderMap.set(group.id, leaderName);
-        });
-        setGroupLeaderNames(leaderMap);
-
-        // Filter out current student from student list
-        const filteredStudentsData = currentStudent 
-          ? studentsData.filter(s => s.id !== currentStudent.id)
-          : studentsData;
-
-        setStudents(studentsData); // Keep full list for reference
-        setProfessors(professorsData);
-        setGroups(groupsData);
-        
-        setFilteredStudents(filteredStudentsData); // Show filtered list
-        setFilteredProfessors(professorsData);
-        setFilteredGroups(groupsData);
-
-        if (currentStudent) {
-          // Fetch user's groups
-          const userGroups = groupsData.filter(g => g.leader_id === currentStudent.id);
-          setMyGroups(userGroups);
-
-          // Fetch invitations
-          try {
-            const invitationsData = await groupsApi.invitations.getForStudent(currentStudent.id);
-            setInvitations(invitationsData);
-          } catch (error) {
-            console.error('Failed to fetch invitations:', error);
-          }
-
-          // Fetch join requests for user's groups
-          try {
-            const allJoinRequests = await Promise.all(
-              userGroups.map(g => groupsApi.joinRequests.getForGroup(g.id))
-            );
-            setJoinRequests(allJoinRequests.flat());
-          } catch (error) {
-            console.error('Failed to fetch join requests:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchAllData();
   }, [user]);
+
+  const fetchAllData = async () => {
+    try {
+      setIsLoading(true);
+      
+      const [studentsData, professorsData, groupsData] = await Promise.all([
+        studentsApi.getAll(),
+        professorsApi.getAll(),
+        groupsApi.getAll()
+      ]);
+
+      // Find current student
+      let currentStudent = null;
+      if (user) {
+        currentStudent = studentsData.find(s => s.user_id === user.id);
+        if (currentStudent) {
+          setCurrentStudentId(currentStudent.id);
+        }
+      }
+
+      // Create a map of student IDs to names
+      const studentNameMap = new Map(studentsData.map(s => [s.id, s.name]));
+      
+      // Create leader name map
+      const leaderMap = new Map<number, string>();
+      groupsData.forEach(group => {
+        const leaderName = studentNameMap.get(group.leader_id) || 'Unknown Leader';
+        leaderMap.set(group.id, leaderName);
+      });
+      setGroupLeaderNames(leaderMap);
+
+      // Filter out current student
+      const filteredStudentsData = currentStudent 
+        ? studentsData.filter(s => s.id !== currentStudent.id)
+        : studentsData;
+
+      setStudents(studentsData);
+      setProfessors(professorsData);
+      setGroups(groupsData);
+      
+      setFilteredStudents(filteredStudentsData);
+      setFilteredProfessors(professorsData);
+      setFilteredGroups(groupsData);
+
+      if (currentStudent) {
+        // Fetch user's groups (where they are a member)
+        const myGroupsData = await groupsApi.getMyGroups();
+        setMyGroups(myGroupsData);
+        
+        // Check if user leads a group
+        const leadsGroup = groupsData.some(g => g.leader_id === currentStudent.id);
+        setHasGroup(leadsGroup);
+
+        // Fetch notifications
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const [notifs, countData] = await Promise.all([
+        notificationsApi.getAll(0, 50, false),
+        notificationsApi.getUnreadCount()
+      ]);
+      setNotifications(notifs);
+      setUnreadCount(countData.count);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
 
   const handleSendMessage = (message: string) => {
     const newMessages: Message[] = [...chatMessages, { role: 'user', content: message }];
 
-    // Map API types to mockData types for chatProcessor
     const mockDataStudents = students.map(s => ({
       id: s.id,
       name: s.name,
@@ -152,7 +153,7 @@ export default function StudentDashboard() {
       id: g.id,
       name: g.name,
       leaderId: g.leader_id,
-      leaderName: 'Leader',
+      leaderName: groupLeaderNames.get(g.id) || 'Leader',
       description: g.description,
       neededSkills: g.needed_skills,
       currentMembers: g.current_members,
@@ -178,7 +179,6 @@ export default function StudentDashboard() {
       mockDataProfessors
     );
 
-    // Convert mockData results back to API types
     const filteredStudentsResult = filteredStds
       .map(s => students.find(std => std.id === s.id))
       .filter((s): s is StudentWithUser => s !== undefined);
@@ -211,7 +211,6 @@ export default function StudentDashboard() {
     }
 
     try {
-      // Use the first group for simplicity - in a real app, let user choose
       await groupsApi.invitations.create({
         group_id: myGroups[0].id,
         student_id: studentId,
@@ -223,7 +222,7 @@ export default function StudentDashboard() {
         ...chatMessages,
         {
           role: 'assistant',
-          content: `Invitation sent to ${student?.name || 'student'} successfully! They'll be notified about your group.`
+          content: `Invitation sent to ${student?.name || 'student'} successfully!`
         }
       ]);
     } catch (error) {
@@ -252,7 +251,20 @@ export default function StudentDashboard() {
         ...chatMessages,
         {
           role: 'assistant',
-          content: `You are already the leader of "${group.name}"! You cannot send a join request to your own group.`
+          content: `You are already the leader of "${group.name}"!`
+        }
+      ]);
+      return;
+    }
+
+    // Check if user is already a member of this group
+    const isAlreadyMember = myGroups.some(g => g.id === groupId);
+    if (isAlreadyMember) {
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: `You are already a member of "${group?.name}"! Check the My Groups tab.`
         }
       ]);
       return;
@@ -269,12 +281,11 @@ export default function StudentDashboard() {
         ...chatMessages,
         {
           role: 'assistant',
-          content: `Join request sent to "${group?.name}" successfully! The group leader will review your request.`
+          content: `Join request sent successfully!`
         }
       ]);
     } catch (error: any) {
-      console.error('Failed to send join request:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to send join request. Please try again.';
+      const errorMessage = error.response?.data?.detail || 'Failed to send join request.';
       setChatMessages([
         ...chatMessages,
         {
@@ -287,74 +298,13 @@ export default function StudentDashboard() {
 
   const handleProfessorMentorshipRequest = (professorId: number) => {
     const professor = professors.find(p => p.id === professorId);
-    // In a real implementation, this would create a mentorship request
     setChatMessages([
       ...chatMessages,
       {
         role: 'assistant',
-        content: `Mentorship request sent to ${professor?.name || 'professor'} successfully! They will review your application.`
+        content: `Mentorship request sent to ${professor?.name || 'professor'} successfully!`
       }
     ]);
-  };
-
-  const handleAcceptInvitation = async (invitationId: number) => {
-    try {
-      await groupsApi.invitations.updateStatus(invitationId, 'accepted');
-      
-      // Update local state
-      const invitation = invitations.find(inv => inv.id === invitationId);
-      if (invitation) {
-        setInvitations(invitations.map(inv => 
-          inv.id === invitationId ? { ...inv, status: 'accepted' as const } : inv
-        ));
-
-        // Refresh groups
-        const groupsData = await groupsApi.getAll();
-        setGroups(groupsData);
-        const userGroups = groupsData.filter(g => g.leader_id === currentStudentId);
-        setMyGroups(userGroups);
-
-        const group = groups.find(g => g.id === invitation.group_id);
-        setChatMessages([
-          ...chatMessages,
-          {
-            role: 'assistant',
-            content: `You've successfully joined "${group?.name}"! Check the My Groups tab to see your new group.`
-          }
-        ]);
-      }
-    } catch (error) {
-      console.error('Failed to accept invitation:', error);
-      setChatMessages([
-        ...chatMessages,
-        {
-          role: 'assistant',
-          content: 'Failed to accept invitation. Please try again.'
-        }
-      ]);
-    }
-  };
-
-  const handleRejectInvitation = async (invitationId: number) => {
-    try {
-      await groupsApi.invitations.updateStatus(invitationId, 'rejected');
-      
-      const invitation = invitations.find(inv => inv.id === invitationId);
-      setInvitations(invitations.map(inv => 
-        inv.id === invitationId ? { ...inv, status: 'rejected' as const } : inv
-      ));
-
-      const group = groups.find(g => g.id === invitation?.group_id);
-      setChatMessages([
-        ...chatMessages,
-        {
-          role: 'assistant',
-          content: `You've declined the invitation to "${group?.name}".`
-        }
-      ]);
-    } catch (error) {
-      console.error('Failed to reject invitation:', error);
-    }
   };
 
   const handleCreateGroup = async (groupData: {
@@ -378,48 +328,38 @@ export default function StudentDashboard() {
       });
 
       setMyGroups([newGroup, ...myGroups]);
+      setHasGroup(true);
       setIsCreateModalOpen(false);
 
       setChatMessages([
         ...chatMessages,
         {
           role: 'assistant',
-          content: `Great! Your group "${groupData.name}" has been created successfully. You can manage it in the My Groups tab.`
+          content: `Your group "${groupData.name}" has been created successfully!`
         }
       ]);
-    } catch (error) {
-      console.error('Failed to create group:', error);
-      alert('Failed to create group. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to create group.';
+      alert(errorMessage);
     }
-  };
-
-  const handleEditGroup = (groupId: number) => {
-    const group = myGroups.find(g => g.id === groupId);
-    setChatMessages([
-      ...chatMessages,
-      {
-        role: 'assistant',
-        content: `Edit functionality for "${group?.name}" would open here. This feature can be implemented similar to the create modal.`
-      }
-    ]);
   };
 
   const handleDeleteGroup = async (groupId: number) => {
     const group = myGroups.find(g => g.id === groupId);
-    if (window.confirm(`Are you sure you want to delete "${group?.name}"? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete "${group?.name}"?`)) {
       try {
         await groupsApi.delete(groupId);
         setMyGroups(myGroups.filter(g => g.id !== groupId));
+        setHasGroup(false);
         setChatMessages([
           ...chatMessages,
           {
             role: 'assistant',
-            content: `The group "${group?.name}" has been deleted successfully.`
+            content: `The group "${group?.name}" has been deleted.`
           }
         ]);
       } catch (error) {
-        console.error('Failed to delete group:', error);
-        alert('Failed to delete group. Please try again.');
+        alert('Failed to delete group.');
       }
     }
   };
@@ -435,13 +375,12 @@ export default function StudentDashboard() {
             ...chatMessages,
             {
               role: 'assistant',
-              content: `You've successfully left the group "${group?.name}".`
+              content: `You've left "${group?.name}".`
             }
           ]);
         }
       } catch (error) {
-        console.error('Failed to leave group:', error);
-        alert('Failed to leave group. Please try again.');
+        alert('Failed to leave group.');
       }
     }
   };
@@ -462,50 +401,42 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: '100vh',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        backgroundColor: colors.neutral.gray100
-      }}
-    >
-      {/* Main Content */}
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: colors.neutral.gray100 }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <DashboardHeader 
           userName={user?.name || 'User'} 
           onLogout={logout}
-          invitations={invitations.map(inv => ({
-            id: inv.id,
-            groupId: inv.group_id,
-            groupName: groups.find(g => g.id === inv.group_id)?.name || 'Unknown Group',
-            leaderName: 'Leader',
-            message: inv.message,
-            timestamp: inv.created_at,
-            status: inv.status
-          }))}
-          onAcceptInvitation={handleAcceptInvitation}
-          onRejectInvitation={handleRejectInvitation}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onNotificationClick={async (notificationId) => {
+            await notificationsApi.markOneRead(notificationId);
+            await fetchNotifications();
+          }}
+          onNotificationAction={async (notificationId, action) => {
+            try {
+              const notification = notifications.find(n => n.id === notificationId);
+              if (!notification) return;
+
+              if (notification.type === 'group_invitation') {
+                await notificationsApi.handleGroupInvitation(notificationId, action);
+              } else if (notification.type === 'join_request') {
+                await notificationsApi.handleGroupJoinRequest(notificationId, action);
+              }
+              
+              // Remove notification from the list immediately
+              setNotifications(notifications.filter(n => n.id !== notificationId));
+              setUnreadCount(Math.max(0, unreadCount - 1));
+            } catch (error) {
+              console.error('Failed to handle notification action:', error);
+            }
+          }}
         />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {/* Content Area */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '2rem'
-          }}
-        >
+        <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
           {/* Students Tab */}
           {activeTab === 'students' && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                gap: '1.5rem'
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
               {filteredStudents.map((student) => (
                 <StudentCard 
                   key={student.id} 
@@ -528,44 +459,40 @@ export default function StudentDashboard() {
 
           {/* Groups Tab */}
           {activeTab === 'groups' && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                gap: '1.5rem'
-              }}
-            >
-              {filteredGroups.map((group) => (
-                <GroupCard 
-                  key={group.id} 
-                  group={{
-                    id: group.id,
-                    name: group.name,
-                    leaderId: group.leader_id,
-                    leaderName: groupLeaderNames.get(group.id) || 'Unknown Leader',
-                    description: group.description,
-                    neededSkills: group.needed_skills,
-                    currentMembers: group.current_members,
-                    maxMembers: group.max_members,
-                    hasMentor: group.has_mentor,
-                    mentorName: group.mentor_id ? 'Mentor' : undefined
-                  }} 
-                  onJoinRequest={handleGroupJoinRequest}
-                  currentStudentId={currentStudentId || undefined}
-                />
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+              {filteredGroups.map((group) => {
+                // Check if user is already a member of this group
+                const isAlreadyMember = myGroups.some(g => g.id === group.id);
+                const isLeader = group.leader_id === currentStudentId;
+                
+                return (
+                  <GroupCard 
+                    key={group.id} 
+                    group={{
+                      id: group.id,
+                      name: group.name,
+                      leaderId: group.leader_id,
+                      leaderName: groupLeaderNames.get(group.id) || 'Unknown',
+                      description: group.description,
+                      neededSkills: group.needed_skills,
+                      currentMembers: group.current_members,
+                      maxMembers: group.max_members,
+                      hasMentor: group.has_mentor,
+                      mentorName: undefined
+                    }} 
+                    onJoinRequest={handleGroupJoinRequest}
+                    currentStudentId={currentStudentId || undefined}
+                    isAlreadyMember={isAlreadyMember}
+                    isLeader={isLeader}
+                  />
+                );
+              })}
             </div>
           )}
 
           {/* Professors Tab */}
           {activeTab === 'professors' && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                gap: '1.5rem'
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
               {filteredProfessors.map((prof) => (
                 <ProfessorCard 
                   key={prof.id} 
@@ -593,101 +520,52 @@ export default function StudentDashboard() {
                     My Groups
                   </h2>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: colors.neutral.gray600 }}>
-                    Manage your research groups
+                    Groups you're a member of
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  style={{
-                    ...primaryButton,
-                    padding: '0.75rem 1.25rem'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary.shadowHover}`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = `0 4px 12px ${colors.primary.shadow}`;
-                  }}
-                >
-                  <Plus size={18} />
-                  Create New Group
-                </button>
+                {!hasGroup && (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    style={{ ...primaryButton, padding: '0.75rem 1.25rem' }}
+                  >
+                    <Plus size={18} />
+                    Create New Group
+                  </button>
+                )}
               </div>
 
               {myGroups.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '4rem 2rem',
-                    background: colors.neutral.white,
-                    borderRadius: '16px',
-                    border: `2px dashed ${colors.neutral.gray200}`
-                  }}
-                >
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    background: colors.neutral.gray100,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 1.5rem'
-                  }}>
-                    <Plus size={40} style={{ color: colors.neutral.gray400 }} />
-                  </div>
-                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
-                    No groups yet
-                  </h3>
-                  <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.875rem', color: colors.neutral.gray600 }}>
-                    Create your first research group to start collaborating
+                <div style={{ textAlign: 'center', padding: '4rem 2rem', background: colors.neutral.white, borderRadius: '16px', border: `2px dashed ${colors.neutral.gray200}` }}>
+                  <h3 style={{ margin: '0 0 0.5rem 0' }}>No groups yet</h3>
+                  <p style={{ margin: '0 0 1.5rem 0', color: colors.neutral.gray600 }}>
+                    Create or join a research group
                   </p>
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    style={{
-                      ...primaryButton,
-                      padding: '0.75rem 1.5rem'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary.shadowHover}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = `0 4px 12px ${colors.primary.shadow}`;
-                    }}
-                  >
-                    <Plus size={18} />
-                    Create Your First Group
-                  </button>
+                  {!hasGroup && (
+                    <button onClick={() => setIsCreateModalOpen(true)} style={primaryButton}>
+                      <Plus size={18} />
+                      Create Your First Group
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                    gap: '1.5rem'
-                  }}
-                >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
                   {myGroups.map((group) => (
                     <MyGroupCard
                       key={group.id}
+                      currentStudentId={currentStudentId || undefined}
                       group={{
                         id: group.id,
                         name: group.name,
                         leaderId: group.leader_id,
-                        leaderName: user?.name || 'You',
+                        leaderName: groupLeaderNames.get(group.id) || 'Leader',
                         description: group.description,
                         neededSkills: group.needed_skills,
                         currentMembers: group.current_members,
                         maxMembers: group.max_members,
                         hasMentor: group.has_mentor,
-                        mentorName: group.mentor_id ? 'Mentor' : undefined,
+                        mentorName: undefined,
                         members: []
                       }}
-                      onEdit={handleEditGroup}
                       onDelete={handleDeleteGroup}
                       onLeave={handleLeaveGroup}
                     />
@@ -699,15 +577,15 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Chatbot Sidebar */}
       <ChatSidebar messages={chatMessages} onSendMessage={handleSendMessage} />
-
-      {/* Create Group Modal */}
-      <CreateGroupModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateGroup}
-      />
+      
+      {!hasGroup && (
+        <CreateGroupModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSubmit={handleCreateGroup}
+        />
+      )}
     </div>
   );
 }

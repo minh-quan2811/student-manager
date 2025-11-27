@@ -1,18 +1,34 @@
-// frontend/src/app/student/components/NotificationBell.tsx
 import { useState } from 'react';
-import { Bell, X, Check, Clock } from 'lucide-react';
+import { Bell, Clock } from 'lucide-react';
 import { colors, baseCard } from '../styles/styles';
-import type { GroupInvitation } from '../data/mockData';
+import type { Notification } from '../../../api/notifications';
 
 interface NotificationBellProps {
-  invitations: GroupInvitation[];
-  onAccept: (invitationId: number) => void;
-  onReject: (invitationId: number) => void;
+  notifications: Notification[];
+  unreadCount: number;
+  onNotificationClick: (notificationId: number) => void;
+  onActionClick?: (notificationId: number, action: 'accept' | 'reject') => Promise<void>;
 }
 
-export default function NotificationBell({ invitations, onAccept, onReject }: NotificationBellProps) {
+export default function NotificationBell({ 
+  notifications, 
+  unreadCount, 
+  onNotificationClick,
+  onActionClick
+}: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const pendingCount = invitations.filter(inv => inv.status === 'pending').length;
+  const [loadingActionId, setLoadingActionId] = useState<number | null>(null);
+
+  const handleAction = async (notificationId: number, action: 'accept' | 'reject') => {
+    if (!onActionClick) return;
+    
+    setLoadingActionId(notificationId);
+    try {
+      await onActionClick(notificationId, action);
+    } finally {
+      setLoadingActionId(null);
+    }
+  };
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -25,6 +41,15 @@ export default function NotificationBell({ invitations, onAccept, onReject }: No
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.read) {
+      onNotificationClick(notification.id);
+    }
+    if (notification.link) {
+      // Handle navigation if needed
+    }
   };
 
   return (
@@ -52,7 +77,7 @@ export default function NotificationBell({ invitations, onAccept, onReject }: No
         }}
       >
         <Bell size={20} />
-        {pendingCount > 0 && (
+        {unreadCount > 0 && (
           <div
             style={{
               position: 'absolute',
@@ -71,7 +96,7 @@ export default function NotificationBell({ invitations, onAccept, onReject }: No
               boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
             }}
           >
-            {pendingCount}
+            {unreadCount}
           </div>
         )}
       </button>
@@ -110,41 +135,54 @@ export default function NotificationBell({ invitations, onAccept, onReject }: No
               background: colors.neutral.gray50
             }}>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
-                Group Invitations
+                Notifications
               </h3>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: colors.neutral.gray600 }}>
-                {pendingCount} pending invitation{pendingCount !== 1 ? 's' : ''}
+                {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
               </p>
             </div>
 
             <div style={{ flex: 1, overflow: 'auto', maxHeight: '400px' }}>
-              {invitations.length === 0 ? (
+              {notifications.length === 0 ? (
                 <div style={{
                   padding: '3rem 1.5rem',
                   textAlign: 'center',
                   color: colors.neutral.gray600
                 }}>
                   <Bell size={48} style={{ opacity: 0.3, margin: '0 auto 1rem' }} />
-                  <p style={{ margin: 0, fontSize: '0.875rem' }}>No invitations yet</p>
+                  <p style={{ margin: 0, fontSize: '0.875rem' }}>No notifications yet</p>
                 </div>
               ) : (
-                invitations.map((invitation) => (
+                notifications.map((notification) => (
                   <div
-                    key={invitation.id}
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
                     style={{
                       padding: '1rem 1.25rem',
                       borderBottom: `1px solid ${colors.neutral.gray200}`,
-                      background: invitation.status === 'pending' ? colors.neutral.white : colors.neutral.gray50
+                      background: notification.read ? colors.neutral.gray50 : colors.neutral.white,
+                      cursor: 'pointer',
+                      transition: 'background 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = colors.neutral.gray100;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = notification.read 
+                        ? colors.neutral.gray50 
+                        : colors.neutral.white;
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
-                          {invitation.groupName}
+                        <h4 style={{ 
+                          margin: 0, 
+                          fontSize: '0.875rem', 
+                          fontWeight: notification.read ? '500' : 'bold', 
+                          color: colors.neutral.gray900 
+                        }}>
+                          {notification.title}
                         </h4>
-                        <p style={{ margin: '0.125rem 0 0 0', fontSize: '0.75rem', color: colors.neutral.gray600 }}>
-                          by {invitation.leaderName}
-                        </p>
                       </div>
                       <div style={{
                         display: 'flex',
@@ -154,97 +192,80 @@ export default function NotificationBell({ invitations, onAccept, onReject }: No
                         color: colors.neutral.gray600
                       }}>
                         <Clock size={12} />
-                        {formatTime(invitation.timestamp)}
+                        {formatTime(notification.created_at)}
                       </div>
                     </div>
 
                     <p style={{
-                      margin: '0.5rem 0',
+                      margin: 0,
                       fontSize: '0.75rem',
                       color: colors.neutral.gray600,
                       lineHeight: '1.4'
                     }}>
-                      {invitation.message}
+                      {notification.message}
                     </p>
 
-                    {invitation.status === 'pending' ? (
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    {(notification.type === 'group_invitation' || notification.type === 'join_request') && (
+                      <div style={{
+                        marginTop: '0.75rem',
+                        display: 'flex',
+                        gap: '0.5rem'
+                      }}>
                         <button
-                          onClick={() => onAccept(invitation.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAction(notification.id, 'accept');
+                          }}
+                          disabled={loadingActionId === notification.id}
                           style={{
                             flex: 1,
-                            padding: '0.5rem',
-                            background: colors.success.gradient,
+                            padding: '0.5rem 0.75rem',
+                            background: colors.primary.gradient,
                             color: 'white',
                             border: 'none',
-                            borderRadius: '8px',
+                            borderRadius: '6px',
                             fontSize: '0.75rem',
                             fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.375rem',
-                            transition: 'all 0.3s ease',
-                            boxShadow: `0 2px 8px ${colors.success.shadow}`
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                            e.currentTarget.style.boxShadow = `0 4px 12px ${colors.success.shadowHover}`;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = `0 2px 8px ${colors.success.shadow}`;
+                            cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
+                            opacity: loadingActionId === notification.id ? 0.6 : 1,
+                            transition: 'all 0.2s ease'
                           }}
                         >
-                          <Check size={14} />
-                          Accept
+                          {loadingActionId === notification.id ? '...' : 'Accept'}
                         </button>
                         <button
-                          onClick={() => onReject(invitation.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAction(notification.id, 'reject');
+                          }}
+                          disabled={loadingActionId === notification.id}
                           style={{
                             flex: 1,
-                            padding: '0.5rem',
-                            background: colors.neutral.white,
-                            color: colors.danger.text,
-                            border: `2px solid ${colors.neutral.gray200}`,
-                            borderRadius: '8px',
+                            padding: '0.5rem 0.75rem',
+                            background: colors.neutral.gray200,
+                            color: colors.neutral.gray600,
+                            border: 'none',
+                            borderRadius: '6px',
                             fontSize: '0.75rem',
                             fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.375rem',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = colors.danger.border;
-                            e.currentTarget.style.background = colors.danger.light;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = colors.neutral.gray200;
-                            e.currentTarget.style.background = colors.neutral.white;
+                            cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
+                            opacity: loadingActionId === notification.id ? 0.6 : 1,
+                            transition: 'all 0.2s ease'
                           }}
                         >
-                          <X size={14} />
-                          Reject
+                          {loadingActionId === notification.id ? '...' : 'Reject'}
                         </button>
                       </div>
-                    ) : (
+                    )}
+
+                    {!notification.read && (
                       <div style={{
                         marginTop: '0.5rem',
-                        padding: '0.375rem 0.75rem',
-                        background: invitation.status === 'accepted' ? colors.success.light : colors.danger.light,
-                        color: invitation.status === 'accepted' ? colors.success.text : colors.danger.text,
-                        borderRadius: '6px',
-                        fontSize: '0.625rem',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        border: `2px solid ${invitation.status === 'accepted' ? colors.success.border : colors.danger.border}`
-                      }}>
-                        {invitation.status === 'accepted' ? 'Accepted' : 'Rejected'}
-                      </div>
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: colors.primary.gradient
+                      }} />
                     )}
                   </div>
                 ))

@@ -1,23 +1,24 @@
-// frontend/src/app/student/components/DashboardHeader.tsx
 import { LogOut } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { colors } from '../styles/styles';
-import type { GroupInvitation } from '../data/mockData';
+import type { Notification } from '../../../api/notifications';
 
 interface DashboardHeaderProps {
   userName: string;
   onLogout: () => void;
-  invitations: GroupInvitation[];
-  onAcceptInvitation: (invitationId: number) => void;
-  onRejectInvitation: (invitationId: number) => void;
+  notifications: Notification[];
+  unreadCount: number;
+  onNotificationClick: (notificationId: number) => void;
+  onNotificationAction?: (notificationId: number, action: 'accept' | 'reject') => Promise<void>;
 }
 
 export default function DashboardHeader({ 
   userName, 
   onLogout, 
-  invitations, 
-  onAcceptInvitation, 
-  onRejectInvitation 
+  notifications,
+  unreadCount,
+  onNotificationClick,
+  onNotificationAction
 }: DashboardHeaderProps) {
   return (
     <div
@@ -53,9 +54,10 @@ export default function DashboardHeader({
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <NotificationBell
-            invitations={invitations}
-            onAccept={onAcceptInvitation}
-            onReject={onRejectInvitation}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onNotificationClick={onNotificationClick}
+            onActionClick={onNotificationAction}
           />
           <div
             style={{

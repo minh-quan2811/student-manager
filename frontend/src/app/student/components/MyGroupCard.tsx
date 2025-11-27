@@ -2,18 +2,18 @@
 import { Users, Crown, Edit, Trash2, UserMinus, Award } from 'lucide-react';
 import { colors, baseCard, primaryButton, dangerButton, outlineButton } from '../styles/styles';
 import type { Group } from '../data/mockData';
-import { CURRENT_USER_ID } from '../data/mockData';
 
 interface MyGroupCardProps {
   group: Group;
+  currentStudentId?: number;
   onEdit?: (groupId: number) => void;
   onDelete?: (groupId: number) => void;
   onLeave?: (groupId: number) => void;
 }
 
-export default function MyGroupCard({ group, onEdit, onDelete, onLeave }: MyGroupCardProps) {
-  const isLeader = group.leaderId === CURRENT_USER_ID;
-  const userRole = group.members?.find(m => m.id === CURRENT_USER_ID)?.role;
+export default function MyGroupCard({ group, currentStudentId, onEdit, onDelete, onLeave }: MyGroupCardProps) {
+  const isLeader = currentStudentId !== undefined && group.leaderId === currentStudentId;
+  const userRole = group.members?.find(m => currentStudentId && m.id === currentStudentId)?.role;
 
   return (
     <div

@@ -18,11 +18,12 @@ interface GroupCardProps {
   group: Group;
   onJoinRequest: (id: number) => void;
   currentStudentId?: number;
+  isAlreadyMember?: boolean;
+  isLeader?: boolean;
 }
 
-export default function GroupCard({ group, onJoinRequest, currentStudentId }: GroupCardProps) {
+export default function GroupCard({ group, onJoinRequest, currentStudentId, isAlreadyMember = false, isLeader = false }: GroupCardProps) {
   const isFull = group.currentMembers >= group.maxMembers;
-  const isCurrentUserLeader = group.leaderId === currentStudentId;
 
   return (
     <div
@@ -120,7 +121,7 @@ export default function GroupCard({ group, onJoinRequest, currentStudentId }: Gr
         </div>
       </div>
 
-      {!isFull && !isCurrentUserLeader && (
+      {!isFull && !isLeader && !isAlreadyMember && (
         <button
           onClick={() => onJoinRequest(group.id)}
           style={{
@@ -141,7 +142,7 @@ export default function GroupCard({ group, onJoinRequest, currentStudentId }: Gr
         </button>
       )}
 
-      {isCurrentUserLeader && (
+      {isLeader && (
         <div style={{
           padding: '0.75rem',
           background: colors.success.light,
@@ -153,6 +154,21 @@ export default function GroupCard({ group, onJoinRequest, currentStudentId }: Gr
           border: `2px solid ${colors.success.border}`
         }}>
           You are the leader of this group
+        </div>
+      )}
+
+      {!isLeader && isAlreadyMember && (
+        <div style={{
+          padding: '0.75rem',
+          background: colors.primary.gradient,
+          color: 'white',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontWeight: '600',
+          fontSize: '0.875rem',
+          boxShadow: `0 2px 8px ${colors.primary.shadow}`
+        }}>
+          You are a member of this group
         </div>
       )}
     </div>

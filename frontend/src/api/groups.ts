@@ -1,3 +1,4 @@
+// frontend/src/api/groups.ts
 import { apiClient } from './client';
 import type { Group, GroupCreate, GroupUpdate, GroupInvitation, GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate } from './types';
 
@@ -5,6 +6,12 @@ export const groupsApi = {
   // Get all groups
   getAll: async (skip: number = 0, limit: number = 100): Promise<Group[]> => {
     const response = await apiClient.get<Group[]>('/groups/', { params: { skip, limit } });
+    return response.data;
+  },
+
+  // Get my groups
+  getMyGroups: async (): Promise<Group[]> => {
+    const response = await apiClient.get<Group[]>('/groups/my-groups');
     return response.data;
   },
 

@@ -2,6 +2,7 @@ from app.schemas.user import User, UserCreate, UserLogin, Token, TokenData
 from app.schemas.student import Student, StudentCreate, StudentUpdate, StudentWithUser
 from app.schemas.professor import Professor, ProfessorCreate, ProfessorUpdate, ProfessorWithUser
 from app.schemas.research import ResearchPaper, ResearchPaperCreate, ResearchPaperUpdate
+from app.schemas.notification import Notification, NotificationCreate, NotificationMarkRead
 from app.schemas.group import (
     Group,
     GroupCreate,
@@ -38,4 +39,7 @@ __all__ = [
     "GroupInvitationCreate",
     "GroupJoinRequest",
     "GroupJoinRequestCreate",
+    "Notification", 
+    "NotificationCreate", 
+    "NotificationMarkRead"
 ]
