@@ -17,15 +17,18 @@ interface Student {
 interface StudentCardProps {
   student: Student;
   onInvite: (id: number) => void;
+  onViewProfile?: (id: number) => void;
 }
 
-export default function StudentCard({ student, onInvite }: StudentCardProps) {
+export default function StudentCard({ student, onInvite, onViewProfile }: StudentCardProps) {
   return (
     <div
       style={baseCard}
+      onClick={() => onViewProfile?.(student.id)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
+        e.currentTarget.style.cursor = 'pointer';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0)';

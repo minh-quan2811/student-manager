@@ -9,6 +9,8 @@ import ProfessorCard from '../components/ProfessorCard';
 import MyGroupCard from '../components/MyGroupCard';
 import ChatSidebar from '../components/ChatSidebar';
 import CreateGroupModal from '../components/CreateGroupModal';
+import StudentDetailModal from '../components/StudentDetailModal';
+import ProfessorDetailModal from '../components/ProfessorDetailModal';
 import { studentsApi, professorsApi, groupsApi, notificationsApi } from '../../../api';
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
 import type { Notification } from '../../../api/notifications';
@@ -48,6 +50,9 @@ export default function StudentDashboard() {
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedProfessorId, setSelectedProfessorId] = useState<number | null>(null);
+  const [isEditingOwnProfile, setIsEditingOwnProfile] = useState(false);
   const [hasGroup, setHasGroup] = useState(false);
 
   // Current student ID
@@ -406,6 +411,9 @@ export default function StudentDashboard() {
         <DashboardHeader 
           userName={user?.name || 'User'} 
           onLogout={logout}
+          onEditProfile={() => {
+            setIsEditingOwnProfile(true);
+          }}
           notifications={notifications}
           unreadCount={unreadCount}
           onNotificationClick={async (notificationId) => {
@@ -451,7 +459,10 @@ export default function StudentDashboard() {
                     lookingForGroup: student.looking_for_group,
                     year: student.year
                   }} 
-                  onInvite={handleStudentInvite} 
+                  onInvite={handleStudentInvite}
+                  onViewProfile={(studentId) => {
+                    setSelectedStudentId(studentId);
+                  }}
                 />
               ))}
             </div>
@@ -505,7 +516,10 @@ export default function StudentDashboard() {
                     availableSlots: prof.available_slots,
                     totalSlots: prof.total_slots
                   }} 
-                  onRequestMentorship={handleProfessorMentorshipRequest} 
+                  onRequestMentorship={handleProfessorMentorshipRequest}
+                  onViewProfile={(professorId) => {
+                    setSelectedProfessorId(professorId);
+                  }}
                 />
               ))}
             </div>
@@ -586,6 +600,19 @@ export default function StudentDashboard() {
           onSubmit={handleCreateGroup}
         />
       )}
+
+      {/* Profile Detail Modals */}
+      <StudentDetailModal
+        isOpen={selectedStudentId !== null && !isEditingOwnProfile}
+        student={selectedStudentId !== null ? students.find(s => s.id === selectedStudentId) || null : null}
+        onClose={() => setSelectedStudentId(null)}
+      />
+
+      <ProfessorDetailModal
+        isOpen={selectedProfessorId !== null}
+        professor={selectedProfessorId !== null ? professors.find(p => p.id === selectedProfessorId) || null : null}
+        onClose={() => setSelectedProfessorId(null)}
+      />
     </div>
   );
 }

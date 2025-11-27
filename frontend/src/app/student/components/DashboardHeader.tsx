@@ -6,6 +6,7 @@ import type { Notification } from '../../../api/notifications';
 interface DashboardHeaderProps {
   userName: string;
   onLogout: () => void;
+  onEditProfile: () => void;
   notifications: Notification[];
   unreadCount: number;
   onNotificationClick: (notificationId: number) => void;
@@ -14,7 +15,8 @@ interface DashboardHeaderProps {
 
 export default function DashboardHeader({ 
   userName, 
-  onLogout, 
+  onLogout,
+  onEditProfile,
   notifications,
   unreadCount,
   onNotificationClick,
@@ -60,13 +62,22 @@ export default function DashboardHeader({
             onActionClick={onNotificationAction}
           />
           <div
+            onClick={onEditProfile}
             style={{
               padding: '0.625rem 1.25rem',
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '10px',
               fontSize: '0.875rem',
               fontWeight: '600',
-              backdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(10px)',
+              cursor: 'pointer',
+              transition: 'all 0.3s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
             }}
           >
             {userName}

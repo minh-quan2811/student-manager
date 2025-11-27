@@ -15,17 +15,20 @@ interface Professor {
 interface ProfessorCardProps {
   professor: Professor;
   onRequestMentorship: (id: number) => void;
+  onViewProfile?: (id: number) => void;
 }
 
-export default function ProfessorCard({ professor, onRequestMentorship }: ProfessorCardProps) {
+export default function ProfessorCard({ professor, onRequestMentorship, onViewProfile }: ProfessorCardProps) {
   const hasSlots = professor.availableSlots > 0;
 
   return (
     <div
       style={baseCard}
+      onClick={() => onViewProfile?.(professor.id)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
+        e.currentTarget.style.cursor = 'pointer';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0)';
