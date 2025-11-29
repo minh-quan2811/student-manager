@@ -11,8 +11,10 @@ import ChatSidebar from '../components/ChatSidebar';
 import CreateGroupModal from '../components/CreateGroupModal';
 import StudentDetailModal from '../components/StudentDetailModal';
 import ProfessorDetailModal from '../components/ProfessorDetailModal';
+import GroupDetailModal from '../components/GroupDetailModal';
 import { studentsApi, professorsApi, groupsApi, notificationsApi } from '../../../api';
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
+import type { GroupMember } from '../../../api/groups';
 import type { Notification } from '../../../api/notifications';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
@@ -54,6 +56,14 @@ export default function StudentDashboard() {
   const [selectedProfessorId, setSelectedProfessorId] = useState<number | null>(null);
   const [isEditingOwnProfile, setIsEditingOwnProfile] = useState(false);
   const [hasGroup, setHasGroup] = useState(false);
+
+  // Group details modal states
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState<GroupMember[]>([]);
+  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
+
+  // Modal stack for navigation (returns to previous modal when closing current one)
+  const [modalStack, setModalStack] = useState<Array<{ type: 'group' | 'student' | 'professor'; id: number }>>([]);
 
   // Current student ID
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
@@ -301,6 +311,62 @@ export default function StudentDashboard() {
     }
   };
 
+  // Add handler to fetch group members
+  const handleViewGroupDetails = async (groupId: number) => {
+    setSelectedGroupId(groupId);
+    setIsLoadingGroupDetails(true);
+    setModalStack([]); // Reset stack when opening group
+    
+    try {
+      const members = await groupsApi.getMembers(groupId);
+      setSelectedGroupMembers(members);
+    } catch (error) {
+      console.error('Failed to fetch group members:', error);
+      alert('Failed to load group details');
+      setSelectedGroupId(null);
+    } finally {
+      setIsLoadingGroupDetails(false);
+    }
+  };
+
+  const handleCloseGroupDetail = () => {
+    setSelectedGroupId(null);
+    setSelectedGroupMembers([]);
+    setModalStack([]);
+  };
+
+  const handleGroupMemberClick = (memberId: number) => {
+    // Push current group to stack, then open student detail
+    setModalStack([{ type: 'group', id: selectedGroupId || 0 }]);
+    setSelectedStudentId(memberId);
+  };
+
+  const handleGroupMentorClick = (mentorId: number) => {
+    // Push current group to stack, then open professor detail
+    setModalStack([{ type: 'group', id: selectedGroupId || 0 }]);
+    setSelectedProfessorId(mentorId);
+  };
+
+  const handleCloseStudentDetail = () => {
+    // If we have a group in the stack, return to it
+    if (modalStack.length > 0 && modalStack[0].type === 'group') {
+      setSelectedStudentId(null);
+      setModalStack([]);
+    } else {
+      setSelectedStudentId(null);
+    }
+  };
+
+  const handleCloseProfessorDetail = () => {
+    // If we have a group in the stack, return to it
+    if (modalStack.length > 0 && modalStack[0].type === 'group') {
+      setSelectedProfessorId(null);
+      setModalStack([]);
+    } else {
+      setSelectedProfessorId(null);
+    }
+  };
+
   const handleProfessorMentorshipRequest = (professorId: number) => {
     const professor = professors.find(p => p.id === professorId);
     setChatMessages([
@@ -462,6 +528,7 @@ export default function StudentDashboard() {
                   onInvite={handleStudentInvite}
                   onViewProfile={(studentId) => {
                     setSelectedStudentId(studentId);
+                    setModalStack([]); // No stack when opening from dashboard
                   }}
                 />
               ))}
@@ -492,6 +559,7 @@ export default function StudentDashboard() {
                       mentorName: undefined
                     }} 
                     onJoinRequest={handleGroupJoinRequest}
+                    onViewDetails={handleViewGroupDetails}
                     currentStudentId={currentStudentId || undefined}
                     isAlreadyMember={isAlreadyMember}
                     isLeader={isLeader}
@@ -519,6 +587,7 @@ export default function StudentDashboard() {
                   onRequestMentorship={handleProfessorMentorshipRequest}
                   onViewProfile={(professorId) => {
                     setSelectedProfessorId(professorId);
+                    setModalStack([]); // No stack when opening from dashboard
                   }}
                 />
               ))}
@@ -603,15 +672,26 @@ export default function StudentDashboard() {
 
       {/* Profile Detail Modals */}
       <StudentDetailModal
-        isOpen={selectedStudentId !== null && !isEditingOwnProfile}
+        isOpen={selectedStudentId !== null && !isEditingOwnProfile && modalStack.length > 0}
         student={selectedStudentId !== null ? students.find(s => s.id === selectedStudentId) || null : null}
-        onClose={() => setSelectedStudentId(null)}
+        onClose={handleCloseStudentDetail}
       />
 
       <ProfessorDetailModal
-        isOpen={selectedProfessorId !== null}
+        isOpen={selectedProfessorId !== null && modalStack.length > 0}
         professor={selectedProfessorId !== null ? professors.find(p => p.id === selectedProfessorId) || null : null}
-        onClose={() => setSelectedProfessorId(null)}
+        onClose={handleCloseProfessorDetail}
+      />
+
+      <GroupDetailModal
+        isOpen={selectedGroupId !== null && !isLoadingGroupDetails && modalStack.length === 0}
+        group={selectedGroupId !== null ? groups.find(g => g.id === selectedGroupId) || null : null}
+        members={selectedGroupMembers}
+        onClose={handleCloseGroupDetail}
+        onMemberClick={handleGroupMemberClick}
+        onMentorClick={handleGroupMentorClick}
+        students={students}
+        professors={professors}
       />
     </div>
   );

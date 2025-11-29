@@ -17,17 +17,19 @@ interface Group {
 interface GroupCardProps {
   group: Group;
   onJoinRequest: (id: number) => void;
+  onViewDetails?: (id: number) => void;
   currentStudentId?: number;
   isAlreadyMember?: boolean;
   isLeader?: boolean;
 }
 
-export default function GroupCard({ group, onJoinRequest, currentStudentId, isAlreadyMember = false, isLeader = false }: GroupCardProps) {
+export default function GroupCard({ group, onJoinRequest, onViewDetails, currentStudentId, isAlreadyMember = false, isLeader = false }: GroupCardProps) {
   const isFull = group.currentMembers >= group.maxMembers;
 
   return (
     <div
-      style={baseCard}
+      style={{ ...baseCard, cursor: onViewDetails ? 'pointer' : 'default' }}
+      onClick={() => onViewDetails?.(group.id)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
@@ -39,7 +41,9 @@ export default function GroupCard({ group, onJoinRequest, currentStudentId, isAl
     >
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}
+          >
             <div
               style={{
                 ...iconContainer,
@@ -123,7 +127,10 @@ export default function GroupCard({ group, onJoinRequest, currentStudentId, isAl
 
       {!isFull && !isLeader && !isAlreadyMember && (
         <button
-          onClick={() => onJoinRequest(group.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onJoinRequest(group.id);
+          }}
           style={{
             ...primaryButton,
             width: '100%'

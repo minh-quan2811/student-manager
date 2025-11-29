@@ -4,13 +4,13 @@ from typing import List
 from app.database import get_db
 from app.schemas.group import (
     Group, GroupCreate, GroupUpdate, GroupInvitation, 
-    GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate
+    GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate, GroupMember
 )
 from app.schemas.notification import Notification as NotificationSchema, NotificationCreate
 from app.crud import group as crud_group
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.group import Group as GroupModel, GroupMember, GroupJoinRequest as GroupJoinRequestModel
+from app.models.group import Group as GroupModel, GroupMember as GroupMemberModel, GroupJoinRequest as GroupJoinRequestModel
 from app.models.student import Student
 from app.models.notification import Notification
 
@@ -49,8 +49,8 @@ def read_my_groups(
         return []
     
     # Get all group memberships
-    group_members = db.query(GroupMember).filter(
-        GroupMember.student_id == student.id
+    group_members = db.query(GroupMemberModel).filter(
+        GroupMemberModel.student_id == student.id
     ).all()
     
     # Get the actual groups
@@ -71,6 +71,21 @@ def read_group(
         raise HTTPException(status_code=404, detail="Group not found")
     
     return db_group
+
+
+@router.get("/{group_id}/members", response_model=List[GroupMember])
+def read_group_members(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all members of a group"""
+    db_group = crud_group.get_group(db, group_id=group_id)
+    if db_group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    members = db.query(GroupMemberModel).filter(GroupMemberModel.group_id == group_id).all()
+    return members
 
 
 @router.post("/", response_model=Group, status_code=status.HTTP_201_CREATED)
@@ -298,9 +313,9 @@ def create_join_request(
         raise HTTPException(status_code=400, detail="You are already the leader of this group")
     
     # Check if already a member
-    existing_member = db.query(GroupMember).filter(
-        GroupMember.group_id == join_request.group_id,
-        GroupMember.student_id == join_request.student_id
+    existing_member = db.query(GroupMemberModel).filter(
+        GroupMemberModel.group_id == join_request.group_id,
+        GroupMemberModel.student_id == join_request.student_id
     ).first()
     
     if existing_member:

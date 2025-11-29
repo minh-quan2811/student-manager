@@ -2,6 +2,14 @@
 import { apiClient } from './client';
 import type { Group, GroupCreate, GroupUpdate, GroupInvitation, GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate } from './types';
 
+export interface GroupMember {
+  id: number;
+  group_id: number;
+  student_id: number;
+  role: string;
+  joined_at: string;
+}
+
 export const groupsApi = {
   // Get all groups
   getAll: async (skip: number = 0, limit: number = 100): Promise<Group[]> => {
@@ -18,6 +26,12 @@ export const groupsApi = {
   // Get group by ID
   getById: async (id: number): Promise<Group> => {
     const response = await apiClient.get<Group>(`/groups/${id}`);
+    return response.data;
+  },
+
+  // Get group members
+  getMembers: async (groupId: number): Promise<GroupMember[]> => {
+    const response = await apiClient.get<GroupMember[]>(`/groups/${groupId}/members`);
     return response.data;
   },
 
