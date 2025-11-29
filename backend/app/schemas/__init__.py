@@ -13,6 +13,12 @@ from app.schemas.group import (
     GroupJoinRequest,
     GroupJoinRequestCreate,
 )
+from app.schemas.mentorship import (
+    MentorshipRequest,
+    MentorshipRequestCreate,
+    MentorshipRequestUpdate,
+    MentorshipRequestWithDetails,
+)
 
 __all__ = [
     "User",
@@ -41,5 +47,9 @@ __all__ = [
     "GroupJoinRequestCreate",
     "Notification", 
     "NotificationCreate", 
-    "NotificationMarkRead"
+    "NotificationMarkRead",
+    "MentorshipRequest",
+    "MentorshipRequestCreate",
+    "MentorshipRequestUpdate",
+    "MentorshipRequestWithDetails",
 ]

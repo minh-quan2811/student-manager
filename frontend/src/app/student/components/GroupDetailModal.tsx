@@ -1,16 +1,16 @@
 import { X, Users, Crown, Award, User, Calendar, Mail } from 'lucide-react';
 import { colors, baseCard, badge } from '../styles/styles';
-import type { Group } from '../../../api/types';
+import type { GroupWithMentors } from '../../../api/groups';
 import type { GroupMember } from '../../../api/groups';
 import type { StudentWithUser, ProfessorWithUser } from '../../../api/types';
 
 interface GroupDetailModalProps {
   isOpen: boolean;
-  group: Group | null;
+  group: GroupWithMentors | null;
   members?: GroupMember[];
   onClose: () => void;
-  onMemberClick?: (studentId: number) => void;
-  onMentorClick?: (professorId: number) => void;
+  onMemberClick?: (memberId: number) => void;
+  onMentorClick?: (mentorId: number) => void;
   students: StudentWithUser[];
   professors: ProfessorWithUser[];
 }
@@ -33,7 +33,6 @@ export default function GroupDetailModal({
 
   // Get student data
   const leaderStudent = leaderMember ? students.find(s => s.id === leaderMember.student_id) : null;
-  const mentor = group.mentor_id ? professors.find(p => p.id === group.mentor_id) : null;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -203,8 +202,8 @@ export default function GroupDetailModal({
             </div>
           </div>
 
-          {/* Mentor Section */}
-          {group.has_mentor && mentor && (
+          {/* Mentor Section - Updated to support multiple mentors */}
+          {group.has_mentor && group.mentors && group.mentors.length > 0 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <p
                 style={{
@@ -219,87 +218,92 @@ export default function GroupDetailModal({
                 }}
               >
                 <Award size={14} />
-                MENTOR
+                MENTORS ({group.mentors.length}/2)
               </p>
-              <div
-                onClick={() => onMentorClick?.(mentor.id)}
-                style={{
-                  padding: '1rem',
-                  background: colors.success.light,
-                  borderRadius: '12px',
-                  border: `2px solid ${colors.success.border}`,
-                  cursor: onMemberClick ? 'pointer' : 'default',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (onMentorClick) {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = `0 4px 12px ${colors.success.shadow}`;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {group.mentors.map((mentor) => (
                   <div
+                    key={mentor.id}
+                    onClick={() => onMentorClick?.(mentor.id)}
                     style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: colors.secondary.gradient,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '1.125rem',
-                      boxShadow: `0 2px 8px ${colors.secondary.shadow}`
+                      padding: '1rem',
+                      background: colors.warning.gradient,
+                      borderRadius: '12px',
+                      border: `2px solid ${colors.warning.border}`,
+                      cursor: onMentorClick ? 'pointer' : 'default',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (onMentorClick) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    {mentor.name.split(' ')[1]?.[0] || mentor.name[0]}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                      <div
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
+                          background: colors.secondary.gradient,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '1.125rem',
+                          boxShadow: `0 2px 8px ${colors.secondary.shadow}`
+                        }}
+                      >
+                        {mentor.name.split(' ')[1]?.[0] || mentor.name[0]}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
+                          {mentor.name}
+                        </h4>
+                        <p style={{ margin: '0.125rem 0 0 0', fontSize: '0.75rem', color: colors.neutral.gray600 }}>
+                          {mentor.department}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                      {mentor.research_areas.slice(0, 3).map((area: string) => (
+                        <span
+                          key={area}
+                          style={{
+                            padding: '0.25rem 0.625rem',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: colors.warning.text,
+                            borderRadius: '6px',
+                            fontSize: '0.625rem',
+                            fontWeight: '600'
+                          }}
+                        >
+                          {area}
+                        </span>
+                      ))}
+                      {mentor.research_areas.length > 3 && (
+                        <span
+                          style={{
+                            padding: '0.25rem 0.625rem',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: colors.warning.text,
+                            borderRadius: '6px',
+                            fontSize: '0.625rem',
+                            fontWeight: '600'
+                          }}
+                        >
+                          +{mentor.research_areas.length - 3} more
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
-                      {mentor.name}
-                    </h4>
-                    <p style={{ margin: '0.125rem 0 0 0', fontSize: '0.75rem', color: colors.neutral.gray600 }}>
-                      {mentor.department}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                  {mentor.research_areas.slice(0, 3).map((area) => (
-                    <span
-                      key={area}
-                      style={{
-                        padding: '0.25rem 0.625rem',
-                        background: colors.neutral.gray100,
-                        color: colors.neutral.gray600,
-                        borderRadius: '6px',
-                        fontSize: '0.625rem',
-                        fontWeight: '600'
-                      }}
-                    >
-                      {area}
-                    </span>
-                  ))}
-                  {mentor.research_areas.length > 3 && (
-                    <span
-                      style={{
-                        padding: '0.25rem 0.625rem',
-                        background: colors.neutral.gray100,
-                        color: colors.neutral.gray600,
-                        borderRadius: '6px',
-                        fontSize: '0.625rem',
-                        fontWeight: '600'
-                      }}
-                    >
-                      +{mentor.research_areas.length - 3} more
-                    </span>
-                  )}
-                </div>
+                ))}
               </div>
             </div>
           )}

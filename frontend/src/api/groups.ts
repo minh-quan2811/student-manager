@@ -118,3 +118,16 @@ export const groupsApi = {
     },
   },
 };
+
+export interface GroupMentor {
+  id: number;
+  name: string;
+  email: string;
+  department: string;
+  research_areas: string[];
+}
+
+export interface GroupWithMentors extends Group {
+  mentors: GroupMentor[];
+  mentor_count: number;
+}

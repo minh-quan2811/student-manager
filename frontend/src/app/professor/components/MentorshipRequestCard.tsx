@@ -1,19 +1,17 @@
-// frontend/src/app/professor/components/MentorshipRequestCard.tsx
 import { useState } from 'react';
 import { Users, Check, X, Clock, User, MessageSquare } from 'lucide-react';
 import { colors, baseCard, successButton, dangerButton, badge, iconContainer } from '../../student/styles/styles';
-import type { MentorshipRequest } from '../data/mockData';
+import type { MentorshipRequestWithDetails } from '../../../api/mentorship';
 
 interface MentorshipRequestCardProps {
-  request: MentorshipRequest;
+  request: MentorshipRequestWithDetails;
   onAccept: (requestId: number) => void;
-  onReject: (requestId: number, note: string) => void;
+  onReject: (requestId: number, reason: string) => void;
 }
 
 export default function MentorshipRequestCard({ request, onAccept, onReject }: MentorshipRequestCardProps) {
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionNote, setRejectionNote] = useState('');
-  const [showDetails, setShowDetails] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -29,13 +27,13 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
   };
 
   const handleReject = () => {
-    if (!rejectionNote.trim()) {
+    if (!rejectionReason.trim()) {
       alert('Please provide a reason for rejection');
       return;
     }
-    onReject(request.id, rejectionNote);
+    onReject(request.id, rejectionReason);
     setShowRejectModal(false);
-    setRejectionNote('');
+    setRejectionReason('');
   };
 
   return (
@@ -81,42 +79,25 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
-                  {request.groupName}
+                  {request.group_name}
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: colors.neutral.gray600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <User size={14} />
-                    Led by {request.leaderName}
+                    Requested by {request.requester_name}
                   </p>
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-              <div
-                style={{
-                  ...badge,
-                  background: request.members >= request.maxMembers 
-                    ? colors.danger.light 
-                    : colors.success.light,
-                  color: request.members >= request.maxMembers 
-                    ? colors.danger.text 
-                    : colors.success.text,
-                  border: `2px solid ${request.members >= request.maxMembers ? colors.danger.border : colors.success.border}`,
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {request.members}/{request.maxMembers}
-              </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                fontSize: '0.625rem',
-                color: colors.neutral.gray600
-              }}>
-                <Clock size={12} />
-                {formatTime(request.timestamp)}
-              </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              fontSize: '0.625rem',
+              color: colors.neutral.gray600
+            }}>
+              <Clock size={12} />
+              {formatTime(request.created_at)}
             </div>
           </div>
 
@@ -131,13 +112,14 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
               fontWeight: '600',
               border: `2px solid ${request.status === 'accepted' ? colors.success.border : colors.danger.border}`
             }}>
-              {request.status === 'accepted' ? '✓ Accepted' : '✗ Rejected'}
+              {request.status === 'accepted' ? 'Accepted' : 'Rejected'}
+              {request.responded_at && ` • ${formatTime(request.responded_at)}`}
             </div>
           )}
         </div>
 
         <p style={{ fontSize: '0.875rem', color: colors.neutral.gray600, marginBottom: '1rem', lineHeight: '1.5' }}>
-          {request.description}
+          {request.group_description}
         </p>
 
         <div style={{ marginBottom: '1rem' }}>
@@ -153,7 +135,7 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
             NEEDED SKILLS
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {request.neededSkills.map((skill) => (
+            {request.group_needed_skills.map((skill) => (
               <span
                 key={skill}
                 style={{
@@ -196,11 +178,11 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
             margin: 0,
             lineHeight: '1.6'
           }}>
-            "{request.requestMessage}"
+            "{request.message}"
           </p>
         </div>
 
-        {request.status === 'rejected' && request.rejectionNote && (
+        {request.status === 'rejected' && request.rejection_reason && (
           <div
             style={{
               padding: '1rem',
@@ -216,7 +198,7 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
               color: colors.danger.text,
               marginBottom: '0.5rem'
             }}>
-              REJECTION NOTE
+              REJECTION REASON
             </p>
             <p style={{
               fontSize: '0.875rem',
@@ -224,7 +206,7 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
               margin: 0,
               lineHeight: '1.6'
             }}>
-              {request.rejectionNote}
+              {request.rejection_reason}
             </p>
           </div>
         )}
@@ -333,12 +315,12 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
 
             <div style={{ padding: '1.5rem' }}>
               <p style={{ fontSize: '0.875rem', color: colors.neutral.gray600, marginBottom: '1rem' }}>
-                Please provide a reason for rejecting <strong>{request.groupName}</strong>. This will help the group understand your decision.
+                Please provide a reason for rejecting the mentorship request from <strong>{request.requester_name}</strong> for the group <strong>{request.group_name}</strong>.
               </p>
 
               <textarea
-                value={rejectionNote}
-                onChange={(e) => setRejectionNote(e.target.value)}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Enter your reason for rejection..."
                 rows={5}
                 style={{
@@ -350,7 +332,8 @@ export default function MentorshipRequestCard({ request, onAccept, onReject }: M
                   outline: 'none',
                   resize: 'vertical',
                   fontFamily: 'inherit',
-                  marginBottom: '1.5rem'
+                  marginBottom: '1.5rem',
+                  boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = colors.danger.text;

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, students, professors, research, groups, notifications
+from app.api.v1 import auth, students, professors, research, groups, notifications, mentorship
 
 api_router = APIRouter()
 
@@ -9,3 +9,4 @@ api_router.include_router(professors.router, prefix="/professors", tags=["profes
 api_router.include_router(research.router, prefix="/research", tags=["research"])
 api_router.include_router(groups.router, prefix="/groups", tags=["groups"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(mentorship.router, prefix="/mentorship-requests", tags=["mentorship"])

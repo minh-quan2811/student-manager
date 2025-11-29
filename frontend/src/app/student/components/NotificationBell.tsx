@@ -153,122 +153,158 @@ export default function NotificationBell({
                   <p style={{ margin: 0, fontSize: '0.875rem' }}>No notifications yet</p>
                 </div>
               ) : (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    style={{
-                      padding: '1rem 1.25rem',
-                      borderBottom: `1px solid ${colors.neutral.gray200}`,
-                      background: notification.read ? colors.neutral.gray50 : colors.neutral.white,
-                      cursor: 'pointer',
-                      transition: 'background 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = colors.neutral.gray100;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = notification.read 
-                        ? colors.neutral.gray50 
-                        : colors.neutral.white;
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ 
-                          margin: 0, 
-                          fontSize: '0.875rem', 
-                          fontWeight: notification.read ? '500' : 'bold', 
-                          color: colors.neutral.gray900 
+                notifications.map((notification) => {
+                  const isMentorshipNotification = [
+                    'mentorship_request',
+                    'mentorship_accepted',
+                    'mentorship_rejected'
+                  ].includes(notification.type);
+
+                  return (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      style={{
+                        padding: '1rem 1.25rem',
+                        borderBottom: `1px solid ${colors.neutral.gray200}`,
+                        background: notification.read ? colors.neutral.gray50 : colors.neutral.white,
+                        cursor: 'pointer',
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = colors.neutral.gray100;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = notification.read 
+                          ? colors.neutral.gray50 
+                          : colors.neutral.white;
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ 
+                            margin: 0, 
+                            fontSize: '0.875rem', 
+                            fontWeight: notification.read ? '500' : 'bold', 
+                            color: colors.neutral.gray900 
+                          }}>
+                            {notification.title}
+                          </h4>
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          fontSize: '0.625rem',
+                          color: colors.neutral.gray600
                         }}>
-                          {notification.title}
-                        </h4>
+                          <Clock size={12} />
+                          {formatTime(notification.created_at)}
+                        </div>
                       </div>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        fontSize: '0.625rem',
-                        color: colors.neutral.gray600
+
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.75rem',
+                        color: colors.neutral.gray600,
+                        lineHeight: '1.4'
                       }}>
-                        <Clock size={12} />
-                        {formatTime(notification.created_at)}
-                      </div>
+                        {notification.message}
+                      </p>
+
+                      {/* Add special badge for mentorship notifications */}
+                      {isMentorshipNotification && (
+                        <div style={{
+                          display: 'inline-block',
+                          padding: '0.25rem 0.5rem',
+                          background: colors.warning.gradient,
+                          color: colors.warning.text,
+                          borderRadius: '4px',
+                          fontSize: '0.625rem',
+                          fontWeight: '600',
+                          marginTop: '0.5rem'
+                        }}>
+                          Mentorship
+                        </div>
+                      )}
+
+                      {/* Show rejection reason if available */}
+                      {notification.type === 'mentorship_rejected' && (notification as any).related_request_id && (
+                        <p style={{
+                          margin: '0.5rem 0 0 0',
+                          fontSize: '0.75rem',
+                          color: colors.danger.text,
+                          fontStyle: 'italic'
+                        }}>
+                          Click to view rejection reason
+                        </p>
+                      )}
+
+                      {(notification.type === 'group_invitation' || notification.type === 'join_request') && (
+                        <div style={{
+                          marginTop: '0.75rem',
+                          display: 'flex',
+                          gap: '0.5rem'
+                        }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAction(notification.id, 'accept');
+                            }}
+                            disabled={loadingActionId === notification.id}
+                            style={{
+                              flex: 1,
+                              padding: '0.5rem 0.75rem',
+                              background: colors.primary.gradient,
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
+                              opacity: loadingActionId === notification.id ? 0.6 : 1,
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {loadingActionId === notification.id ? '...' : 'Accept'}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAction(notification.id, 'reject');
+                            }}
+                            disabled={loadingActionId === notification.id}
+                            style={{
+                              flex: 1,
+                              padding: '0.5rem 0.75rem',
+                              background: colors.neutral.gray200,
+                              color: colors.neutral.gray600,
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
+                              opacity: loadingActionId === notification.id ? 0.6 : 1,
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {loadingActionId === notification.id ? '...' : 'Reject'}
+                          </button>
+                        </div>
+                      )}
+
+                      {!notification.read && (
+                        <div style={{
+                          marginTop: '0.5rem',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: colors.primary.gradient
+                        }} />
+                      )}
                     </div>
-
-                    <p style={{
-                      margin: 0,
-                      fontSize: '0.75rem',
-                      color: colors.neutral.gray600,
-                      lineHeight: '1.4'
-                    }}>
-                      {notification.message}
-                    </p>
-
-                    {(notification.type === 'group_invitation' || notification.type === 'join_request') && (
-                      <div style={{
-                        marginTop: '0.75rem',
-                        display: 'flex',
-                        gap: '0.5rem'
-                      }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(notification.id, 'accept');
-                          }}
-                          disabled={loadingActionId === notification.id}
-                          style={{
-                            flex: 1,
-                            padding: '0.5rem 0.75rem',
-                            background: colors.primary.gradient,
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
-                            opacity: loadingActionId === notification.id ? 0.6 : 1,
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {loadingActionId === notification.id ? '...' : 'Accept'}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(notification.id, 'reject');
-                          }}
-                          disabled={loadingActionId === notification.id}
-                          style={{
-                            flex: 1,
-                            padding: '0.5rem 0.75rem',
-                            background: colors.neutral.gray200,
-                            color: colors.neutral.gray600,
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            cursor: loadingActionId === notification.id ? 'not-allowed' : 'pointer',
-                            opacity: loadingActionId === notification.id ? 0.6 : 1,
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {loadingActionId === notification.id ? '...' : 'Reject'}
-                        </button>
-                      </div>
-                    )}
-
-                    {!notification.read && (
-                      <div style={{
-                        marginTop: '0.5rem',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: colors.primary.gradient
-                      }} />
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -26,5 +26,4 @@ class Professor(Base):
     
     # Relationships
     user = relationship("User", back_populates="professor")
-    mentored_groups = relationship("Group", back_populates="mentor")
     research_papers = relationship("ResearchPaper", secondary="research_professors", back_populates="professors")

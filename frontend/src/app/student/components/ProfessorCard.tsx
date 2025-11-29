@@ -1,5 +1,4 @@
-// frontend/src/app/student/components/ProfessorCard.tsx
-import { MessageSquare, Award } from 'lucide-react';
+import { Award, Send } from 'lucide-react';
 import { colors, baseCard, secondaryButton, badge } from '../styles/styles';
 
 interface Professor {
@@ -51,7 +50,7 @@ export default function ProfessorCard({ professor, onRequestMentorship, onViewPr
             boxShadow: `0 4px 12px ${colors.secondary.shadow}`
           }}
         >
-          {professor.name.split(' ')[1][0]}
+          {professor.name.split(' ')[1]?.[0] || professor.name[0]}
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
@@ -109,7 +108,10 @@ export default function ProfessorCard({ professor, onRequestMentorship, onViewPr
 
       {hasSlots && (
         <button
-          onClick={() => onRequestMentorship(professor.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestMentorship(professor.id);
+          }}
           style={{
             ...secondaryButton,
             width: '100%'
@@ -123,7 +125,7 @@ export default function ProfessorCard({ professor, onRequestMentorship, onViewPr
             e.currentTarget.style.boxShadow = `0 4px 12px ${colors.secondary.shadow}`;
           }}
         >
-          <MessageSquare size={16} />
+          <Send size={16} />
           Request Mentorship
         </button>
       )}

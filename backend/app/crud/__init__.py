@@ -1,3 +1,3 @@
-from app.crud import student, professor, research, group
+from app.crud import student, professor, research, group, mentorship
 
-__all__ = ["student", "professor", "research", "group"]
+__all__ = ["student", "professor", "research", "group", "mentorship"]

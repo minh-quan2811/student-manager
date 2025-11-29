@@ -12,7 +12,9 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.group import Group as GroupModel, GroupMember as GroupMemberModel, GroupJoinRequest as GroupJoinRequestModel
 from app.models.student import Student
+from app.models.professor import Professor
 from app.models.notification import Notification
+from app.models.group import group_mentors
 
 router = APIRouter()
 
@@ -70,7 +72,30 @@ def read_group(
     if db_group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    return db_group
+    # Add mentor information
+    group_dict = {
+        **db_group.__dict__,
+        "mentors": []
+    }
+    
+    # Fetch mentors if group has any
+    if db_group.has_mentor:
+        mentor_records = db.execute(
+            group_mentors.select().where(group_mentors.c.group_id == group_id)
+        ).fetchall()
+        
+        for record in mentor_records:
+            professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
+            if professor:
+                group_dict["mentors"].append({
+                    "id": professor.id,
+                    "name": professor.user.name,
+                    "email": professor.user.email,
+                    "department": professor.department,
+                    "research_areas": professor.research_areas
+                })
+    
+    return group_dict
 
 
 @router.get("/{group_id}/members", response_model=List[GroupMember])

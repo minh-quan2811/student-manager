@@ -1,93 +1,105 @@
-// frontend/src/app/professor/pages/ProfessorDashboard.tsx
 import { useState, useRef, useEffect } from 'react';
-import { Inbox } from 'lucide-react';
+import { Inbox, Award } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import ProfessorDashboardHeader from '../components/ProfessorDashboardHeader';
 import ProfessorTabNavigation from '../components/ProfessorTabNavigation';
 import MentorshipRequestCard from '../components/MentorshipRequestCard';
 import MentoredGroupCard from '../components/MentoredGroupCard';
+import { mentorshipApi } from '../../../api/mentorship';
+import type { MentorshipRequestWithDetails } from '../../../api/mentorship';
 import { 
-  mockMentorshipRequests,
   mockMentoredGroups,
   CURRENT_PROFESSOR_NAME
 } from '../data/mockData';
 import { colors } from '../../student/styles/styles';
-import type { MentorshipRequest, MentoredGroup } from '../data/mockData';
+import type { MentoredGroup } from '../data/mockData';
 
 type TabType = 'requests' | 'mygroups';
 
 export default function ProfessorDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('requests');
-  const [requests, setRequests] = useState<MentorshipRequest[]>(mockMentorshipRequests);
+  const [mentorshipRequests, setMentorshipRequests] = useState<MentorshipRequestWithDetails[]>([]);
   const [mentoredGroups, setMentoredGroups] = useState<MentoredGroup[]>(mockMentoredGroups);
-  const [highlightedRequestId, setHighlightedRequestId] = useState<number | null>(null);
-  const requestRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [professorId, setProfessorId] = useState<number | null>(null);
 
-  const pendingRequestCount = requests.filter(req => req.status === 'pending').length;
+  const pendingRequestCount = mentorshipRequests.filter(req => req.status === 'pending').length;
 
+  // Fetch mentorship requests
   useEffect(() => {
-    if (highlightedRequestId && requestRefs.current[highlightedRequestId]) {
-      requestRefs.current[highlightedRequestId]?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
+    const fetchData = async () => {
+      if (!user) return;
       
-      // Remove highlight after animation
-      setTimeout(() => {
-        setHighlightedRequestId(null);
-      }, 2000);
-    }
-  }, [highlightedRequestId]);
-
-  const handleViewRequest = (requestId: number) => {
-    setActiveTab('requests');
-    setTimeout(() => {
-      setHighlightedRequestId(requestId);
-    }, 100);
-  };
-
-  const handleAcceptRequest = (requestId: number) => {
-    const request = requests.find(req => req.id === requestId);
-    if (!request) return;
-
-    // Update request status
-    setRequests(requests.map(req => 
-      req.id === requestId ? { ...req, status: 'accepted' as const } : req
-    ));
-
-    // Add to mentored groups
-    const newGroup: MentoredGroup = {
-      id: request.groupId,
-      name: request.groupName,
-      leaderId: request.leaderId,
-      leaderName: request.leaderName,
-      description: request.description,
-      neededSkills: request.neededSkills,
-      currentMembers: request.members,
-      maxMembers: request.maxMembers,
-      members: [
-        { 
-          id: request.leaderId, 
-          name: request.leaderName, 
-          role: 'leader', 
-          joinedAt: new Date().toISOString().split('T')[0] 
-        }
-      ],
-      startDate: new Date().toISOString().split('T')[0],
-      status: 'active'
+      try {
+        setIsLoading(true);
+        // In a real app, you'd get the professor ID from the user data
+        // For now, we'll use a placeholder
+        const profId = 1; // Replace with actual professor ID from user
+        setProfessorId(profId);
+        
+        const requests = await mentorshipApi.getForProfessor(profId);
+        setMentorshipRequests(requests);
+      } catch (error) {
+        console.error('Failed to fetch mentorship requests:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    setMentoredGroups([newGroup, ...mentoredGroups]);
+    fetchData();
+  }, [user]);
+
+  const handleAcceptRequest = async (requestId: number) => {
+    if (!window.confirm('Are you sure you want to accept this mentorship request? This will use one of your available slots.')) {
+      return;
+    }
+
+    try {
+      await mentorshipApi.updateStatus(requestId, 'accepted');
+      
+      // Refresh requests
+      if (professorId) {
+        const requests = await mentorshipApi.getForProfessor(professorId);
+        setMentorshipRequests(requests);
+      }
+
+      alert('Mentorship request accepted successfully!');
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to accept mentorship request');
+    }
   };
 
-  const handleRejectRequest = (requestId: number, rejectionNote: string) => {
-    setRequests(requests.map(req => 
-      req.id === requestId 
-        ? { ...req, status: 'rejected' as const, rejectionNote } 
-        : req
-    ));
+  const handleRejectRequest = async (requestId: number, reason: string) => {
+    try {
+      await mentorshipApi.updateStatus(requestId, 'rejected', reason);
+      
+      // Refresh requests
+      if (professorId) {
+        const requests = await mentorshipApi.getForProfessor(professorId);
+        setMentorshipRequests(requests);
+      }
+
+      alert('Mentorship request rejected.');
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to reject mentorship request');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        fontSize: '1.5rem',
+        color: '#667eea'
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -102,8 +114,8 @@ export default function ProfessorDashboard() {
       <ProfessorDashboardHeader 
         professorName={user?.name || CURRENT_PROFESSOR_NAME}
         onLogout={logout}
-        requests={requests}
-        onViewRequest={handleViewRequest}
+        requests={[]} // Update this with actual notification data
+        onViewRequest={() => {}}
       />
       
       <ProfessorTabNavigation 
@@ -132,7 +144,7 @@ export default function ProfessorDashboard() {
               </p>
             </div>
 
-            {requests.length === 0 ? (
+            {mentorshipRequests.length === 0 ? (
               <div
                 style={{
                   textAlign: 'center',
@@ -169,25 +181,13 @@ export default function ProfessorDashboard() {
                   gap: '1.5rem'
                 }}
               >
-                {requests.map((request) => (
-                  <div 
+                {mentorshipRequests.map((request) => (
+                  <MentorshipRequestCard
                     key={request.id}
-                    ref={(el) => {
-                      requestRefs.current[request.id] = el;
-                    }}
-                    style={{
-                      transition: 'all 0.3s ease',
-                      ...(highlightedRequestId === request.id && {
-                        animation: 'highlight 2s ease-in-out'
-                      })
-                    }}
-                  >
-                    <MentorshipRequestCard
-                      request={request}
-                      onAccept={handleAcceptRequest}
-                      onReject={handleRejectRequest}
-                    />
-                  </div>
+                    request={request}
+                    onAccept={handleAcceptRequest}
+                    onReject={handleRejectRequest}
+                  />
                 ))}
               </div>
             )}
@@ -226,7 +226,7 @@ export default function ProfessorDashboard() {
                   justifyContent: 'center',
                   margin: '0 auto 1.5rem'
                 }}>
-                  <Inbox size={40} style={{ color: colors.neutral.gray400 }} />
+                  <Award size={40} style={{ color: colors.neutral.gray400 }} />
                 </div>
                 <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
                   No mentored groups yet
@@ -319,13 +319,6 @@ export default function ProfessorDashboard() {
           </>
         )}
       </div>
-
-      <style>{`
-        @keyframes highlight {
-          0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-          50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3), 0 8px 30px rgba(245, 158, 11, 0.2); }
-        }
-      `}</style>
     </div>
   );
 }

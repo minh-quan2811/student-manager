@@ -12,12 +12,14 @@ import CreateGroupModal from '../components/CreateGroupModal';
 import StudentDetailModal from '../components/StudentDetailModal';
 import ProfessorDetailModal from '../components/ProfessorDetailModal';
 import GroupDetailModal from '../components/GroupDetailModal';
-import { studentsApi, professorsApi, groupsApi, notificationsApi } from '../../../api';
+import ProfessorInviteModal from '../components/ProfessorInviteModal';
+import { studentsApi, professorsApi, groupsApi, notificationsApi, mentorshipApi } from '../../../api';
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
 import type { GroupMember } from '../../../api/groups';
 import type { Notification } from '../../../api/notifications';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
+
 
 interface Message {
   role: 'user' | 'assistant';
@@ -68,6 +70,12 @@ export default function StudentDashboard() {
   // Current student ID
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
   const [groupLeaderNames, setGroupLeaderNames] = useState<Map<number, string>>(new Map());
+
+  // State for professor invite modal
+  const [selectedProfessorForInvite, setSelectedProfessorForInvite] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
   // Fetch all data on mount
   useEffect(() => {
@@ -369,13 +377,38 @@ export default function StudentDashboard() {
 
   const handleProfessorMentorshipRequest = (professorId: number) => {
     const professor = professors.find(p => p.id === professorId);
-    setChatMessages([
-      ...chatMessages,
-      {
-        role: 'assistant',
-        content: `Mentorship request sent to ${professor?.name || 'professor'} successfully!`
-      }
-    ]);
+    if (professor && currentStudentId) {
+      setSelectedProfessorForInvite({
+        id: professor.id,
+        name: professor.name
+      });
+    }
+  };
+
+  // Handler for submitting mentorship request
+  const handleSubmitMentorshipRequest = async (groupId: number, message: string) => {
+    if (!currentStudentId) {
+      throw new Error('Student ID not found');
+    }
+
+    try {
+      await mentorshipApi.create({
+        group_id: groupId,
+        professor_id: selectedProfessorForInvite!.id,
+        requested_by: currentStudentId,
+        message: message
+      });
+
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: `Mentorship request sent to ${selectedProfessorForInvite!.name} successfully! You can have up to 2 active requests at a time.`
+        }
+      ]);
+    } catch (error: any) {
+      throw error;
+    }
   };
 
   const handleCreateGroup = async (groupData: {
@@ -685,13 +718,25 @@ export default function StudentDashboard() {
 
       <GroupDetailModal
         isOpen={selectedGroupId !== null && !isLoadingGroupDetails && modalStack.length === 0}
-        group={selectedGroupId !== null ? groups.find(g => g.id === selectedGroupId) || null : null}
+        group={selectedGroupId !== null ? (() => {
+          const foundGroup = groups.find(g => g.id === selectedGroupId);
+          return foundGroup ? { ...foundGroup, mentors: [], mentor_count: 0 } : null;
+        })() : null}
         members={selectedGroupMembers}
         onClose={handleCloseGroupDetail}
         onMemberClick={handleGroupMemberClick}
         onMentorClick={handleGroupMentorClick}
         students={students}
         professors={professors}
+      />
+
+      <ProfessorInviteModal
+        isOpen={selectedProfessorForInvite !== null}
+        onClose={() => setSelectedProfessorForInvite(null)}
+        professorId={selectedProfessorForInvite?.id || 0}
+        professorName={selectedProfessorForInvite?.name || ''}
+        myGroups={myGroups.filter(g => g.leader_id === currentStudentId)}
+        onSubmit={handleSubmitMentorshipRequest}
       />
     </div>
   );

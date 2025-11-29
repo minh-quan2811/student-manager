@@ -9,7 +9,7 @@ def get_group(db: Session, group_id: int) -> Optional[Group]:
 
 
 def get_groups(db: Session, skip: int = 0, limit: int = 100) -> List[Group]:
-    return db.query(Group).options(joinedload(Group.members)).offset(skip).limit(limit).all()
+    return db.query(Group).offset(skip).limit(limit).all()
 
 
 def create_group(db: Session, group: GroupCreate) -> Group:

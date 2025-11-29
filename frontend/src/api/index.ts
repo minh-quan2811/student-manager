@@ -6,3 +6,4 @@ export { professorsApi } from './professors';
 export { researchApi } from './research';
 export { groupsApi } from './groups';
 export { notificationsApi } from './notifications';
+export { mentorshipApi } from './mentorship';
