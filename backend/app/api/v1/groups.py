@@ -302,6 +302,31 @@ def create_invitation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Check if student is already a member of the group
+    existing_member = db.query(GroupMemberModel).filter(
+        GroupMemberModel.group_id == invitation.group_id,
+        GroupMemberModel.student_id == invitation.student_id
+    ).first()
+    
+    if existing_member:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This student is already a member of the group"
+        )
+    
+    # Check if there's already a pending invitation for this student
+    existing_invitation = db.query(GroupInvitation).filter(
+        GroupInvitation.group_id == invitation.group_id,
+        GroupInvitation.student_id == invitation.student_id,
+        GroupInvitation.status == "pending"
+    ).first()
+    
+    if existing_invitation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This student already has a pending invitation to this group"
+        )
+    
     result = crud_group.create_invitation(db=db, invitation=invitation)
     
     # Create notification for invited student

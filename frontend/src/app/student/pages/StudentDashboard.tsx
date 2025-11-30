@@ -236,7 +236,7 @@ export default function StudentDashboard() {
     setChatMessages(newMessages);
   };
 
-  const handleStudentInvite = async (studentId: number) => {
+const handleStudentInvite = async (studentId: number) => {
     if (!currentStudentId || myGroups.length === 0) {
       setChatMessages([
         ...chatMessages,
@@ -263,13 +263,13 @@ export default function StudentDashboard() {
           content: `Invitation sent to ${student?.name || 'student'} successfully!`
         }
       ]);
-    } catch (error) {
-      console.error('Failed to send invitation:', error);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to send invitation. Please try again.';
       setChatMessages([
         ...chatMessages,
         {
           role: 'assistant',
-          content: 'Failed to send invitation. Please try again.'
+          content: errorMessage
         }
       ]);
     }
@@ -728,10 +728,10 @@ export default function StudentDashboard() {
 
       <GroupDetailModal
         isOpen={selectedGroupId !== null && !isLoadingGroupDetails && modalStack.length === 0}
-        group={selectedGroupId !== null ? (() => {
-          const foundGroup = groups.find(g => g.id === selectedGroupId);
-          return foundGroup ? { ...foundGroup, mentors: [], mentor_count: 0 } : null;
-        })() : null}
+        group={selectedGroupId !== null ? 
+          filteredGroupsWithMentors.find(g => g.id === selectedGroupId) || 
+          groups.find(g => g.id === selectedGroupId) 
+          : null}
         members={selectedGroupMembers}
         onClose={handleCloseGroupDetail}
         onMemberClick={handleGroupMemberClick}
