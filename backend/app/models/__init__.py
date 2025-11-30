@@ -5,6 +5,7 @@ from app.models.research import ResearchPaper, research_professors, research_tea
 from app.models.group import Group, GroupMember, GroupInvitation, GroupJoinRequest, group_mentors
 from app.models.notification import Notification
 from app.models.mentorship_request import MentorshipRequest
+from app.models.chat import GroupChatMessage, MessageReadStatus
 
 __all__ = [
     "User",
@@ -21,4 +22,6 @@ __all__ = [
     "group_mentors",
     "Notification",
     "MentorshipRequest",
+    "GroupChatMessage", 
+    "MessageReadStatus",
 ]

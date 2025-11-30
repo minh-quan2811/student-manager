@@ -13,6 +13,7 @@ import StudentDetailModal from '../components/StudentDetailModal';
 import ProfessorDetailModal from '../components/ProfessorDetailModal';
 import GroupDetailModal from '../components/GroupDetailModal';
 import ProfessorInviteModal from '../components/ProfessorInviteModal';
+import GroupChatModal from '../components/GroupChatModal';
 import { studentsApi, professorsApi, groupsApi, notificationsApi, mentorshipApi } from '../../../api';
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
 import type { GroupMember } from '../../../api/groups';
@@ -77,6 +78,18 @@ export default function StudentDashboard() {
     id: number;
     name: string;
   } | null>(null);
+
+  // Chat modal state
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedChatGroup, setSelectedChatGroup] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+
+  const handleOpenChat = (groupId: number, groupName: string) => {
+    setSelectedChatGroup({ id: groupId, name: groupName });
+    setIsChatModalOpen(true);
+  };  
 
   // Fetch all data on mount
   useEffect(() => {
@@ -694,10 +707,21 @@ const handleStudentInvite = async (studentId: number) => {
                       }}
                       onDelete={handleDeleteGroup}
                       onLeave={handleLeaveGroup}
+                      onOpenChat={handleOpenChat}
                     />
                   ))}
                 </div>
               )}
+              <GroupChatModal
+                isOpen={isChatModalOpen}
+                onClose={() => {
+                  setIsChatModalOpen(false);
+                  setSelectedChatGroup(null);
+                }}
+                groupId={selectedChatGroup?.id || 0}
+                groupName={selectedChatGroup?.name || ''}
+                currentUserName={user?.name || 'User'}
+              />
             </>
           )}
         </div>

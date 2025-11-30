@@ -7,3 +7,4 @@ export { researchApi } from './research';
 export { groupsApi } from './groups';
 export { notificationsApi } from './notifications';
 export { mentorshipApi } from './mentorship';
+export { chatApi } from './chat';
