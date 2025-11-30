@@ -97,4 +97,10 @@ export const professorsApi = {
   search: async (params: ProfessorQueryParams): Promise<ProfessorWithUser[]> => {
     return professorsApi.getAll(params);
   },
+
+  // Get mentored groups for a professor
+  getMentoredGroups: async (professorId: number): Promise<any[]> => {
+    const response = await apiClient.get<any[]>(`/professors/${professorId}/mentored-groups`);
+    return response.data;
+  },
 };

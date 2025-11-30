@@ -1,29 +1,29 @@
 import { UserPlus, Users, Award } from 'lucide-react';
 import { colors, baseCard, primaryButton, badge, iconContainer } from '../styles/styles';
-
-interface Group {
-  id: number;
-  name: string;
-  leaderId: number;
-  leaderName: string;
-  description: string;
-  neededSkills: string[];
-  currentMembers: number;
-  maxMembers: number;
-  hasMentor: boolean;
-  mentorName?: string;
-}
+import type { GroupWithMentors } from '../../../api/groups';
 
 interface GroupCardProps {
-  group: Group;
+  group: GroupWithMentors & {
+    leaderId: number;
+    leaderName: string;
+    neededSkills: string[];
+    currentMembers: number;
+    maxMembers: number;
+    hasMentor: boolean;
+  };
   onJoinRequest: (id: number) => void;
   onViewDetails?: (id: number) => void;
-  currentStudentId?: number;
   isAlreadyMember?: boolean;
   isLeader?: boolean;
 }
 
-export default function GroupCard({ group, onJoinRequest, onViewDetails, currentStudentId, isAlreadyMember = false, isLeader = false }: GroupCardProps) {
+export default function GroupCard({ 
+  group, 
+  onJoinRequest, 
+  onViewDetails,
+  isAlreadyMember = false, 
+  isLeader = false 
+}: GroupCardProps) {
   const isFull = group.currentMembers >= group.maxMembers;
 
   return (
@@ -74,21 +74,42 @@ export default function GroupCard({ group, onJoinRequest, onViewDetails, current
         <p style={{ fontSize: '0.875rem', color: colors.neutral.gray600, margin: '0 0 0.5rem 0' }}>
           Led by <span style={{ fontWeight: '600', color: colors.neutral.gray900 }}>{group.leaderName}</span>
         </p>
-        {group.hasMentor && (
-          <p
-            style={{
-              fontSize: '0.875rem',
-              color: colors.success.text,
-              margin: 0,
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}
-          >
-            <Award size={14} />
-            Mentor: {group.mentorName}
-          </p>
+        {group.hasMentor && group.mentors && group.mentors.length > 0 && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <p
+              style={{
+                fontSize: '0.875rem',
+                color: colors.success.text,
+                margin: 0,
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                marginBottom: '0.25rem'
+              }}
+            >
+              <Award size={14} />
+              Mentor{group.mentors.length > 1 ? 's' : ''}: {group.mentors.length}/2
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {group.mentors.map((mentor) => (
+                <div
+                  key={mentor.id}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    background: colors.warning.gradient,
+                    color: colors.warning.text,
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    border: `2px solid ${colors.warning.border}`
+                  }}
+                >
+                  {mentor.name}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

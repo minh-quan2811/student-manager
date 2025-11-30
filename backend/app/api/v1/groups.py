@@ -35,8 +35,37 @@ def read_groups(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    groups = crud_group.get_groups(db, skip=skip, limit=limit)
-    return groups
+    groups_data = crud_group.get_groups(db, skip=skip, limit=limit)
+    
+    # Enrich groups with mentor information
+    result = []
+    for group in groups_data:
+        group_dict = {
+            **group.__dict__,
+            "mentors": [],
+            "mentor_count": group.mentor_count or 0
+        }
+        
+        # Fetch mentors if group has any
+        if group.has_mentor:
+            mentor_records = db.execute(
+                group_mentors.select().where(group_mentors.c.group_id == group.id)
+            ).fetchall()
+            
+            for record in mentor_records:
+                professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
+                if professor:
+                    group_dict["mentors"].append({
+                        "id": professor.id,
+                        "name": professor.user.name,
+                        "email": professor.user.email,
+                        "department": professor.department,
+                        "research_areas": professor.research_areas
+                    })
+        
+        result.append(group_dict)
+    
+    return result
 
 
 @router.get("/my-groups", response_model=List[Group])
@@ -57,9 +86,37 @@ def read_my_groups(
     
     # Get the actual groups
     group_ids = [gm.group_id for gm in group_members]
-    groups = db.query(GroupModel).filter(GroupModel.id.in_(group_ids)).all()
+    groups_data = db.query(GroupModel).filter(GroupModel.id.in_(group_ids)).all()
     
-    return groups
+    # Enrich groups with mentor information
+    result = []
+    for group in groups_data:
+        group_dict = {
+            **group.__dict__,
+            "mentors": [],
+            "mentor_count": group.mentor_count or 0
+        }
+        
+        # Fetch mentors if group has any
+        if group.has_mentor:
+            mentor_records = db.execute(
+                group_mentors.select().where(group_mentors.c.group_id == group.id)
+            ).fetchall()
+            
+            for record in mentor_records:
+                professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
+                if professor:
+                    group_dict["mentors"].append({
+                        "id": professor.id,
+                        "name": professor.user.name,
+                        "email": professor.user.email,
+                        "department": professor.department,
+                        "research_areas": professor.research_areas
+                    })
+        
+        result.append(group_dict)
+    
+    return result
 
 
 @router.get("/{group_id}", response_model=Group)
@@ -75,7 +132,8 @@ def read_group(
     # Add mentor information
     group_dict = {
         **db_group.__dict__,
-        "mentors": []
+        "mentors": [],
+        "mentor_count": db_group.mentor_count or 0
     }
     
     # Fetch mentors if group has any

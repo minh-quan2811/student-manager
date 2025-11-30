@@ -302,3 +302,67 @@ def create_professors_bulk(
         'accounts': created_accounts,
         'errors': errors
     }
+
+
+# GET mentored groups for a professor
+@router.get("/{professor_id}/mentored-groups", response_model=List[Dict[str, Any]])
+def get_professor_mentored_groups(
+    professor_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all groups mentored by a professor"""
+    from app.models.group import group_mentors, Group as GroupModel
+    
+    # Get the professor
+    professor = db.query(ProfessorModel).filter(ProfessorModel.id == professor_id).first()
+    if not professor:
+        raise HTTPException(status_code=404, detail="Professor not found")
+    
+    # Verify authorization - user must be the professor or admin
+    if current_user.role != "admin" and current_user.id != professor.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view these groups"
+        )
+    
+    # Get all groups mentored by this professor
+    mentor_records = db.execute(
+        group_mentors.select().where(group_mentors.c.professor_id == professor_id)
+    ).fetchall()
+    
+    group_ids = [record.group_id for record in mentor_records]
+    
+    if not group_ids:
+        return []
+    
+    groups = db.query(GroupModel).filter(GroupModel.id.in_(group_ids)).all()
+    
+    # Enrich groups with mentor information
+    result = []
+    for group in groups:
+        group_dict = {
+            **group.__dict__,
+            "mentors": [],
+            "mentor_count": group.mentor_count or 0
+        }
+        
+        # Fetch all mentors for this group
+        all_mentor_records = db.execute(
+            group_mentors.select().where(group_mentors.c.group_id == group.id)
+        ).fetchall()
+        
+        for record in all_mentor_records:
+            prof = db.query(ProfessorModel).filter(ProfessorModel.id == record.professor_id).first()
+            if prof:
+                group_dict["mentors"].append({
+                    "id": prof.id,
+                    "name": prof.user.name,
+                    "email": prof.user.email,
+                    "department": prof.department,
+                    "research_areas": prof.research_areas
+                })
+        
+        result.append(group_dict)
+    
+    return result

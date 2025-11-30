@@ -226,82 +226,84 @@ export default function GroupDetailModal({
                     key={mentor.id}
                     onClick={() => onMentorClick?.(mentor.id)}
                     style={{
-                      padding: '1rem',
-                      background: colors.warning.gradient,
-                      borderRadius: '12px',
-                      border: `2px solid ${colors.warning.border}`,
+                      padding: '0.875rem',
+                      background: colors.neutral.gray50,
+                      borderRadius: '10px',
+                      border: `2px solid ${colors.neutral.gray200}`,
                       cursor: onMentorClick ? 'pointer' : 'default',
                       transition: 'all 0.3s ease'
                     }}
                     onMouseEnter={(e) => {
                       if (onMentorClick) {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+                        e.currentTarget.style.background = colors.neutral.gray100;
+                        e.currentTarget.style.borderColor = colors.neutral.gray400;
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.background = colors.neutral.gray50;
+                      e.currentTarget.style.borderColor = colors.neutral.gray200;
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <div
                         style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '10px',
-                          background: colors.secondary.gradient,
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          background: colors.warning.gradient,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'white',
                           fontWeight: 'bold',
-                          fontSize: '1.125rem',
-                          boxShadow: `0 2px 8px ${colors.secondary.shadow}`
+                          fontSize: '1rem',
+                          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
                         }}
                       >
                         {mentor.name.split(' ')[1]?.[0] || mentor.name[0]}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
+                        <h5 style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: colors.neutral.gray900 }}>
                           {mentor.name}
-                        </h4>
-                        <p style={{ margin: '0.125rem 0 0 0', fontSize: '0.75rem', color: colors.neutral.gray600 }}>
+                        </h5>
+                        <p style={{ margin: '0.125rem 0 0 0', fontSize: '0.6875rem', color: colors.neutral.gray600 }}>
                           {mentor.department}
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                      {mentor.research_areas.slice(0, 3).map((area: string) => (
-                        <span
-                          key={area}
-                          style={{
-                            padding: '0.25rem 0.625rem',
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            color: colors.warning.text,
-                            borderRadius: '6px',
-                            fontSize: '0.625rem',
-                            fontWeight: '600'
-                          }}
-                        >
-                          {area}
-                        </span>
-                      ))}
-                      {mentor.research_areas.length > 3 && (
-                        <span
-                          style={{
-                            padding: '0.25rem 0.625rem',
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            color: colors.warning.text,
-                            borderRadius: '6px',
-                            fontSize: '0.625rem',
-                            fontWeight: '600'
-                          }}
-                        >
-                          +{mentor.research_areas.length - 3} more
-                        </span>
-                      )}
-                    </div>
+                    {mentor.research_areas && mentor.research_areas.length > 0 && (
+                      <div style={{ marginTop: '0.625rem', display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                        {mentor.research_areas.slice(0, 3).map((area: string) => (
+                          <span
+                            key={area}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              color: colors.neutral.gray600,
+                              borderRadius: '6px',
+                              fontSize: '0.625rem',
+                              fontWeight: '600'
+                            }}
+                          >
+                            {area}
+                          </span>
+                        ))}
+                        {mentor.research_areas.length > 3 && (
+                          <span
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              color: colors.neutral.gray600,
+                              borderRadius: '6px',
+                              fontSize: '0.625rem',
+                              fontWeight: '600'
+                            }}
+                          >
+                            +{mentor.research_areas.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

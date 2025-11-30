@@ -1,4 +1,3 @@
-// frontend/src/app/student/components/StudentCard.tsx
 import { UserPlus } from 'lucide-react';
 import { colors, baseCard, successButton, badge } from '../styles/styles';
 
@@ -112,7 +111,10 @@ export default function StudentCard({ student, onInvite, onViewProfile }: Studen
       </div>
 
       <button
-        onClick={() => onInvite(student.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onInvite(student.id);
+        }}
         style={{
           ...successButton,
           width: '100%'

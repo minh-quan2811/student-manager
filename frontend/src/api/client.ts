@@ -16,16 +16,18 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
+        // Only add default Content-Type if not already set
+        if (!config.headers['Content-Type']) {
+          config.headers['Content-Type'] = 'application/json';
+        }
+        
         const token = localStorage.getItem('access_token');
-        if (token) {
+        if (token && !config.headers.Authorization) {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;

@@ -50,6 +50,7 @@ export default function StudentDashboard() {
   const [filteredStudents, setFilteredStudents] = useState<StudentWithUser[]>([]);
   const [filteredProfessors, setFilteredProfessors] = useState<ProfessorWithUser[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
+  const [filteredGroupsWithMentors, setFilteredGroupsWithMentors] = useState<any[]>([]);
   
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +118,19 @@ export default function StudentDashboard() {
         ? studentsData.filter(s => s.id !== currentStudent.id)
         : studentsData;
 
+      // Fetch detailed group info including mentors
+      const groupsWithMentors = await Promise.all(
+        groupsData.map(async (group) => {
+          try {
+            const groupDetail = await groupsApi.getById(group.id);
+            return groupDetail;
+          } catch (error) {
+            console.error(`Failed to fetch details for group ${group.id}:`, error);
+            return { ...group, mentors: [], mentor_count: 0 };
+          }
+        })
+      );
+
       setStudents(studentsData);
       setProfessors(professorsData);
       setGroups(groupsData);
@@ -124,6 +138,7 @@ export default function StudentDashboard() {
       setFilteredStudents(filteredStudentsData);
       setFilteredProfessors(professorsData);
       setFilteredGroups(groupsData);
+      setFilteredGroupsWithMentors(groupsWithMentors);
 
       if (currentStudent) {
         // Fetch user's groups (where they are a member)
@@ -571,8 +586,7 @@ export default function StudentDashboard() {
           {/* Groups Tab */}
           {activeTab === 'groups' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
-              {filteredGroups.map((group) => {
-                // Check if user is already a member of this group
+              {filteredGroupsWithMentors.map((group) => {
                 const isAlreadyMember = myGroups.some(g => g.id === group.id);
                 const isLeader = group.leader_id === currentStudentId;
                 
@@ -580,20 +594,16 @@ export default function StudentDashboard() {
                   <GroupCard 
                     key={group.id} 
                     group={{
-                      id: group.id,
-                      name: group.name,
+                      ...group,
                       leaderId: group.leader_id,
                       leaderName: groupLeaderNames.get(group.id) || 'Unknown',
-                      description: group.description,
                       neededSkills: group.needed_skills,
                       currentMembers: group.current_members,
                       maxMembers: group.max_members,
-                      hasMentor: group.has_mentor,
-                      mentorName: undefined
+                      hasMentor: group.has_mentor
                     }} 
                     onJoinRequest={handleGroupJoinRequest}
                     onViewDetails={handleViewGroupDetails}
-                    currentStudentId={currentStudentId || undefined}
                     isAlreadyMember={isAlreadyMember}
                     isLeader={isLeader}
                   />

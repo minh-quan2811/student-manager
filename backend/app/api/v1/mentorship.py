@@ -131,6 +131,37 @@ def create_mentorship_request(
     return db_request
 
 
+@router.get("/{request_id}", response_model=MentorshipRequest)
+def get_mentorship_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific mentorship request"""
+    mentorship_request = crud_mentorship.get_mentorship_request(db, request_id)
+    if not mentorship_request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mentorship request not found"
+        )
+    
+    # Verify authorization - user must be the professor, student who requested, or admin
+    professor = db.query(Professor).filter(Professor.user_id == current_user.id).first()
+    student = db.query(Student).filter(Student.user_id == current_user.id).first()
+    
+    is_professor = professor and professor.id == mentorship_request.professor_id
+    is_requester = student and student.id == mentorship_request.requested_by
+    is_admin = current_user.role == "admin"
+    
+    if not (is_professor or is_requester or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view this request"
+        )
+    
+    return mentorship_request
+
+
 @router.get("/professor/{professor_id}", response_model=List[MentorshipRequestWithDetails])
 def get_professor_mentorship_requests(
     professor_id: int,

@@ -3,6 +3,14 @@ from typing import List, Optional
 from datetime import datetime
 
 
+class MentorBase(BaseModel):
+    id: int
+    name: str
+    email: str
+    department: str
+    research_areas: List[str]
+
+
 class GroupBase(BaseModel):
     name: str
     description: str
@@ -29,6 +37,8 @@ class Group(GroupBase):
     current_members: int
     has_mentor: bool
     mentor_id: Optional[int] = None
+    mentors: List[MentorBase] = []
+    mentor_count: int = 0
     created_at: datetime
     
     class Config:

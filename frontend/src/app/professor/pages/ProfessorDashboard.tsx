@@ -1,33 +1,48 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Inbox, Award } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import ProfessorDashboardHeader from '../components/ProfessorDashboardHeader';
 import ProfessorTabNavigation from '../components/ProfessorTabNavigation';
 import MentorshipRequestCard from '../components/MentorshipRequestCard';
 import MentoredGroupCard from '../components/MentoredGroupCard';
-import { mentorshipApi, authApi } from '../../../api';
+import { mentorshipApi, authApi, groupsApi, studentsApi } from '../../../api';
 import type { MentorshipRequestWithDetails } from '../../../api/mentorship';
 import type { ProfessorProfileResponse } from '../../../api/types';
-import { 
-  mockMentoredGroups,
-  CURRENT_PROFESSOR_NAME
-} from '../data/mockData';
+import type { GroupWithMentors, GroupMember } from '../../../api/groups';
 import { colors } from '../../student/styles/styles';
-import type { MentoredGroup } from '../data/mockData';
+
 type TabType = 'requests' | 'mygroups';
+
+interface MentoredGroupData {
+  id: number;
+  name: string;
+  leaderName: string;
+  description: string;
+  neededSkills: string[];
+  currentMembers: number;
+  maxMembers: number;
+  status: 'active' | 'completed';
+  startDate: string;
+  members: Array<{
+    id: number;
+    name: string;
+    role: string;
+    joinedAt: string;
+  }>;
+}
 
 export default function ProfessorDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('requests');
   const [mentorshipRequests, setMentorshipRequests] = useState<MentorshipRequestWithDetails[]>([]);
-  const [mentoredGroups, setMentoredGroups] = useState<MentoredGroup[]>(mockMentoredGroups);
+  const [mentoredGroups, setMentoredGroups] = useState<MentoredGroupData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [professorId, setProfessorId] = useState<number | null>(null);
   const [professorProfile, setProfessorProfile] = useState<ProfessorProfileResponse | null>(null);
 
   const pendingRequestCount = mentorshipRequests.filter(req => req.status === 'pending').length;
 
-  // Fetch mentorship requests
+  // Fetch mentorship requests and mentored groups
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -44,12 +59,61 @@ export default function ProfessorDashboard() {
         // Fetch mentorship requests using the professor's ID
         const requests = await mentorshipApi.getForProfessor(professorProfile.id);
         setMentorshipRequests(requests);
+
+        // Fetch groups where this professor is a mentor
+        const allGroups = await groupsApi.getAll();
+        const mentoredGroupsData: MentoredGroupData[] = [];
+
+        for (const group of allGroups) {
+          // Fetch full group details to check mentors
+          const groupDetail = await groupsApi.getById(group.id) as GroupWithMentors;
+          
+          // Check if professor is a mentor of this group
+          const isMentor = groupDetail.mentors?.some(m => m.id === professorProfile.id);
+          
+          if (isMentor) {
+            // Fetch group members
+            const members = await groupsApi.getMembers(group.id);
+            
+            // Fetch all students to get their names
+            const allStudents = await studentsApi.getAll();
+            
+            // Map members with student data
+            const memberData = members.map(member => {
+              const student = allStudents.find(s => s.id === member.student_id);
+              return {
+                id: member.student_id,
+                name: student?.name || 'Unknown',
+                role: member.role,
+                joinedAt: member.joined_at || new Date().toISOString()
+              };
+            });
+
+            // Find leader
+            const leader = memberData.find(m => m.role === 'leader');
+
+            mentoredGroupsData.push({
+              id: group.id,
+              name: group.name,
+              leaderName: leader?.name || 'Unknown',
+              description: group.description,
+              neededSkills: group.needed_skills,
+              currentMembers: group.current_members,
+              maxMembers: group.max_members,
+              status: 'active', // All current groups are active
+              startDate: group.created_at || new Date().toISOString(),
+              members: memberData
+            });
+          }
+        }
+
+        setMentoredGroups(mentoredGroupsData);
       } catch (error: any) {
-        console.error('Failed to fetch mentorship requests:', error);
+        console.error('Failed to fetch data:', error);
         if (error.response?.status === 403) {
           alert('You do not have a professor profile. Please contact an administrator.');
         } else {
-          alert('Failed to load mentorship requests. Please try again.');
+          alert('Failed to load data. Please try again.');
         }
       } finally {
         setIsLoading(false);
@@ -75,6 +139,47 @@ export default function ProfessorDashboard() {
         ]);
         setMentorshipRequests(requests);
         setProfessorProfile(profile);
+
+        // Also refresh mentored groups to show the new group
+        const allGroups = await groupsApi.getAll();
+        const mentoredGroupsData: MentoredGroupData[] = [];
+
+        for (const group of allGroups) {
+          const groupDetail = await groupsApi.getById(group.id) as GroupWithMentors;
+          const isMentor = groupDetail.mentors?.some(m => m.id === professorId);
+          
+          if (isMentor) {
+            const members = await groupsApi.getMembers(group.id);
+            const allStudents = await studentsApi.getAll();
+            
+            const memberData = members.map(member => {
+              const student = allStudents.find(s => s.id === member.student_id);
+              return {
+                id: member.student_id,
+                name: student?.name || 'Unknown',
+                role: member.role,
+                joinedAt: member.joined_at || new Date().toISOString()
+              };
+            });
+
+            const leader = memberData.find(m => m.role === 'leader');
+
+            mentoredGroupsData.push({
+              id: group.id,
+              name: group.name,
+              leaderName: leader?.name || 'Unknown',
+              description: group.description,
+              neededSkills: group.needed_skills,
+              currentMembers: group.current_members,
+              maxMembers: group.max_members,
+              status: 'active',
+              startDate: group.created_at || new Date().toISOString(),
+              members: memberData
+            });
+          }
+        }
+
+        setMentoredGroups(mentoredGroupsData);
       }
 
       alert('Mentorship request accepted successfully!');
@@ -125,9 +230,9 @@ export default function ProfessorDashboard() {
       }}
     >
       <ProfessorDashboardHeader 
-        professorName={user?.name || CURRENT_PROFESSOR_NAME}
+        professorName={user?.name || 'Professor'}
         onLogout={logout}
-        requests={[]} // Update this with actual notification data
+        requests={[]}
         onViewRequest={() => {}}
       />
       
@@ -215,7 +320,7 @@ export default function ProfessorDashboard() {
                 My Mentored Groups
               </h2>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: colors.neutral.gray600 }}>
-                Groups you are currently mentoring and past mentorships
+                Groups you are currently mentoring
               </p>
             </div>
 
@@ -249,8 +354,7 @@ export default function ProfessorDashboard() {
                 </p>
               </div>
             ) : (
-              <>
-                {/* Active Groups */}
+              <div>
                 <div style={{ marginBottom: '2rem' }}>
                   <h3 style={{ 
                     margin: '0 0 1rem 0', 
@@ -287,47 +391,7 @@ export default function ProfessorDashboard() {
                       ))}
                   </div>
                 </div>
-
-                {/* Completed Groups */}
-                {mentoredGroups.filter(g => g.status === 'completed').length > 0 && (
-                  <div>
-                    <h3 style={{ 
-                      margin: '0 0 1rem 0', 
-                      fontSize: '1.125rem', 
-                      fontWeight: 'bold', 
-                      color: colors.neutral.gray900,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      Completed Groups
-                      <span style={{
-                        padding: '0.25rem 0.625rem',
-                        background: colors.neutral.gray100,
-                        color: colors.neutral.gray600,
-                        borderRadius: '8px',
-                        fontSize: '0.75rem',
-                        border: `2px solid ${colors.neutral.gray200}`
-                      }}>
-                        {mentoredGroups.filter(g => g.status === 'completed').length}
-                      </span>
-                    </h3>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-                        gap: '1.5rem'
-                      }}
-                    >
-                      {mentoredGroups
-                        .filter(group => group.status === 'completed')
-                        .map((group) => (
-                          <MentoredGroupCard key={group.id} group={group} />
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </>
         )}
