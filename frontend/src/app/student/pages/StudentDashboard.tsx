@@ -705,13 +705,13 @@ export default function StudentDashboard() {
 
       {/* Profile Detail Modals */}
       <StudentDetailModal
-        isOpen={selectedStudentId !== null && !isEditingOwnProfile && modalStack.length > 0}
+        isOpen={selectedStudentId !== null && !isEditingOwnProfile}
         student={selectedStudentId !== null ? students.find(s => s.id === selectedStudentId) || null : null}
         onClose={handleCloseStudentDetail}
       />
 
       <ProfessorDetailModal
-        isOpen={selectedProfessorId !== null && modalStack.length > 0}
+        isOpen={selectedProfessorId !== null}
         professor={selectedProfessorId !== null ? professors.find(p => p.id === selectedProfessorId) || null : null}
         onClose={handleCloseProfessorDetail}
       />

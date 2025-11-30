@@ -7,6 +7,7 @@ Create Date: 2025-11-29 10:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.engine.reflection import Inspector
 
 
 # revision identifiers, used by Alembic.
@@ -17,6 +18,7 @@ depends_on = None
 
 
 def upgrade():
+    # Create mentorship_requests table
     op.create_table(
         'mentorship_requests',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -37,9 +39,31 @@ def upgrade():
     op.create_index('ix_mentorship_requests_status', 'mentorship_requests', ['status'])
     op.create_index('ix_mentorship_requests_professor_id', 'mentorship_requests', ['professor_id'])
     op.create_index('ix_mentorship_requests_group_id', 'mentorship_requests', ['group_id'])
+    
+    # Add mentor_count to groups table
+    conn = op.get_bind()
+    inspector = Inspector.from_engine(conn)
+    columns = [col['name'] for col in inspector.get_columns('groups')]
+    
+    if 'mentor_count' not in columns:
+        op.add_column('groups', sa.Column('mentor_count', sa.Integer(), nullable=False, server_default='0'))
+        
+        # Update existing rows to have correct mentor_count
+        op.execute("""
+            UPDATE groups
+            SET mentor_count = (
+                SELECT COUNT(*)
+                FROM group_mentors
+                WHERE group_mentors.group_id = groups.id
+            )
+        """)
 
 
 def downgrade():
+    # Drop mentor_count column from groups
+    op.drop_column('groups', 'mentor_count')
+    
+    # Drop mentorship_requests table
     op.drop_index('ix_mentorship_requests_group_id', table_name='mentorship_requests')
     op.drop_index('ix_mentorship_requests_professor_id', table_name='mentorship_requests')
     op.drop_index('ix_mentorship_requests_status', table_name='mentorship_requests')

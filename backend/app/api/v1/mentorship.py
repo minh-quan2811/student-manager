@@ -134,7 +134,7 @@ def create_mentorship_request(
 @router.get("/professor/{professor_id}", response_model=List[MentorshipRequestWithDetails])
 def get_professor_mentorship_requests(
     professor_id: int,
-    status: str = None,
+    request_status: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -150,7 +150,8 @@ def get_professor_mentorship_requests(
                 detail="Not authorized to view these requests"
             )
     
-    requests = crud_mentorship.get_mentorship_requests_for_professor(db, professor_id, status)
+    requests = crud_mentorship.get_mentorship_requests_for_professor(db, professor_id, request_status)
+
     
     # Build detailed response
     result = []
