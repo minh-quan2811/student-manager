@@ -25,6 +25,40 @@ export interface RegisterRequest {
   password: string;
 }
 
+// Profile Response types
+export interface ProfessorProfileResponse {
+  id: number;
+  user_id: number;
+  professor_id: string;
+  faculty: string;
+  field: string;
+  department: string;
+  research_areas: string[];
+  research_interests: string[];
+  achievements?: string;
+  publications: number;
+  bio?: string;
+  available_slots: number;
+  total_slots: number;
+  name: string;
+  email: string;
+}
+
+export interface StudentProfileResponse {
+  id: number;
+  user_id: number;
+  student_id: string;
+  gpa: number;
+  major: string;
+  faculty: string;
+  year: string;
+  skills: string[];
+  bio?: string;
+  looking_for_group: boolean;
+  name: string;
+  email: string;
+}
+
 // Student types
 export interface Student {
   id: number;

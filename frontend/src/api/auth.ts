@@ -1,5 +1,12 @@
 import { apiClient } from './client';
-import type { LoginRequest, LoginResponse, RegisterRequest, User } from './types';
+import type { 
+  LoginRequest, 
+  LoginResponse, 
+  User, 
+  RegisterRequest,
+  ProfessorProfileResponse,
+  StudentProfileResponse 
+} from './types';
 
 export const authApi = {
   // Login
@@ -29,6 +36,38 @@ export const authApi = {
   // Get current user
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get<User>('/auth/me');
+    return response.data;
+  },
+
+  // Get professor profile
+  getProfessorProfile: async (): Promise<ProfessorProfileResponse> => {
+    const response = await apiClient.get<ProfessorProfileResponse>('/auth/profile/professor');
+    return response.data;
+  },
+
+  // Get student profile
+  getStudentProfile: async (): Promise<StudentProfileResponse> => {
+    const response = await apiClient.get<StudentProfileResponse>('/auth/profile/student');
+    return response.data;
+  },
+
+  // Update professor profile
+  updateProfessorProfile: async (data: {
+    bio?: string;
+    research_interests?: string[];
+    total_slots?: number;
+  }): Promise<ProfessorProfileResponse> => {
+    const response = await apiClient.put<ProfessorProfileResponse>('/auth/profile/professor', data);
+    return response.data;
+  },
+
+  // Update student profile
+  updateStudentProfile: async (data: {
+    bio?: string;
+    skills?: string[];
+    looking_for_group?: boolean;
+  }): Promise<StudentProfileResponse> => {
+    const response = await apiClient.put<StudentProfileResponse>('/auth/profile/student', data);
     return response.data;
   },
 

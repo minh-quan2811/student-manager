@@ -5,15 +5,15 @@ import ProfessorDashboardHeader from '../components/ProfessorDashboardHeader';
 import ProfessorTabNavigation from '../components/ProfessorTabNavigation';
 import MentorshipRequestCard from '../components/MentorshipRequestCard';
 import MentoredGroupCard from '../components/MentoredGroupCard';
-import { mentorshipApi } from '../../../api/mentorship';
+import { mentorshipApi, authApi } from '../../../api';
 import type { MentorshipRequestWithDetails } from '../../../api/mentorship';
+import type { ProfessorProfileResponse } from '../../../api/types';
 import { 
   mockMentoredGroups,
   CURRENT_PROFESSOR_NAME
 } from '../data/mockData';
 import { colors } from '../../student/styles/styles';
 import type { MentoredGroup } from '../data/mockData';
-
 type TabType = 'requests' | 'mygroups';
 
 export default function ProfessorDashboard() {
@@ -23,6 +23,7 @@ export default function ProfessorDashboard() {
   const [mentoredGroups, setMentoredGroups] = useState<MentoredGroup[]>(mockMentoredGroups);
   const [isLoading, setIsLoading] = useState(true);
   const [professorId, setProfessorId] = useState<number | null>(null);
+  const [professorProfile, setProfessorProfile] = useState<ProfessorProfileResponse | null>(null);
 
   const pendingRequestCount = mentorshipRequests.filter(req => req.status === 'pending').length;
 
@@ -33,15 +34,23 @@ export default function ProfessorDashboard() {
       
       try {
         setIsLoading(true);
-        // In a real app, you'd get the professor ID from the user data
-        // For now, we'll use a placeholder
-        const profId = 1; // Replace with actual professor ID from user
-        setProfessorId(profId);
         
-        const requests = await mentorshipApi.getForProfessor(profId);
+        // Get the professor profile for the current user
+        const professorProfile = await authApi.getProfessorProfile();
+        
+        setProfessorId(professorProfile.id);
+        setProfessorProfile(professorProfile);
+        
+        // Fetch mentorship requests using the professor's ID
+        const requests = await mentorshipApi.getForProfessor(professorProfile.id);
         setMentorshipRequests(requests);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch mentorship requests:', error);
+        if (error.response?.status === 403) {
+          alert('You do not have a professor profile. Please contact an administrator.');
+        } else {
+          alert('Failed to load mentorship requests. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -58,10 +67,14 @@ export default function ProfessorDashboard() {
     try {
       await mentorshipApi.updateStatus(requestId, 'accepted');
       
-      // Refresh requests
+      // Refresh requests AND profile (to update available slots)
       if (professorId) {
-        const requests = await mentorshipApi.getForProfessor(professorId);
+        const [requests, profile] = await Promise.all([
+          mentorshipApi.getForProfessor(professorId),
+          authApi.getProfessorProfile()
+        ]);
         setMentorshipRequests(requests);
+        setProfessorProfile(profile);
       }
 
       alert('Mentorship request accepted successfully!');
