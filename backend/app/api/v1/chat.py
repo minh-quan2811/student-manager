@@ -75,11 +75,19 @@ def send_message(
     # Mark as read by sender
     crud_chat.mark_message_as_read(db, message.id, current_user.id)
     
-    return {
-        **message.__dict__,
-        "sender_name": sender_name,
-        "is_read": True
-    }
+    # Return properly structured response
+    return ChatMessage(
+        id=message.id,
+        group_id=message.group_id,
+        sender_id=message.sender_id,
+        sender_type=message.sender_type,
+        message=message.message,
+        created_at=message.created_at,
+        edited_at=message.edited_at,
+        is_deleted=message.is_deleted,
+        sender_name=sender_name,
+        is_read=True
+    )
 
 
 @router.get("/groups/{group_id}/messages", response_model=List[ChatMessage])
@@ -138,11 +146,19 @@ def update_message(
     # Update message
     updated_message = crud_chat.update_message(db, message_id, message_data)
     
-    return {
-        **updated_message.__dict__,
-        "sender_name": current_user.name,
-        "is_read": True
-    }
+    # Return properly structured response
+    return ChatMessage(
+        id=updated_message.id,
+        group_id=updated_message.group_id,
+        sender_id=updated_message.sender_id,
+        sender_type=updated_message.sender_type,
+        message=updated_message.message,
+        created_at=updated_message.created_at,
+        edited_at=updated_message.edited_at,
+        is_deleted=updated_message.is_deleted,
+        sender_name=current_user.name,
+        is_read=True
+    )
 
 
 @router.delete("/groups/{group_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -227,7 +243,7 @@ def get_unread_count(
     # Get unread count
     count = crud_chat.get_unread_count(db, group_id, current_user.id)
     
-    return {
-        "group_id": group_id,
-        "unread_count": count
-    }
+    return UnreadCountResponse(
+        group_id=group_id,
+        unread_count=count
+    )

@@ -18,6 +18,8 @@ import { studentsApi, professorsApi, groupsApi, notificationsApi, mentorshipApi 
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
 import type { GroupMember } from '../../../api/groups';
 import type { Notification } from '../../../api/notifications';
+import ProfileEditModal from '../components/ProfileEditModal';
+import { authApi } from '../../../api';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
 
@@ -39,6 +41,12 @@ export default function StudentDashboard() {
     }
   ]);
   
+  const [currentStudentProfile, setCurrentStudentProfile] = useState<{
+    bio: string;
+    skills: string[];
+    looking_for_group: boolean;
+  } | null>(null);
+
   // Data states
   const [students, setStudents] = useState<StudentWithUser[]>([]);
   const [professors, setProfessors] = useState<ProfessorWithUser[]>([]);
@@ -112,6 +120,12 @@ export default function StudentDashboard() {
         currentStudent = studentsData.find(s => s.user_id === user.id);
         if (currentStudent) {
           setCurrentStudentId(currentStudent.id);
+          // Set current student profile
+          setCurrentStudentProfile({
+            bio: currentStudent.bio || '',
+            skills: currentStudent.skills || [],
+            looking_for_group: currentStudent.looking_for_group
+          });
         }
       }
 
@@ -182,6 +196,40 @@ export default function StudentDashboard() {
       setUnreadCount(countData.count);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  const handleSaveProfile = async (updatedProfile: {
+    bio: string;
+    skills: string[];
+    looking_for_group: boolean;
+  }) => {
+    try {
+      await authApi.updateStudentProfile(updatedProfile);
+      
+      // Update local state
+      setCurrentStudentProfile(updatedProfile);
+      
+      // Refresh students data to reflect changes
+      const studentsData = await studentsApi.getAll();
+      const currentStudent = studentsData.find(s => s.user_id === user?.id);
+      
+      const filteredStudentsData = currentStudent 
+        ? studentsData.filter(s => s.id !== currentStudent.id)
+        : studentsData;
+      
+      setStudents(studentsData);
+      setFilteredStudents(filteredStudentsData);
+      
+      setChatMessages([
+        ...chatMessages,
+        {
+          role: 'assistant',
+          content: 'Your profile has been updated successfully!'
+        }
+      ]);
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -566,6 +614,16 @@ const handleStudentInvite = async (studentId: number) => {
             }
           }}
         />
+
+        {currentStudentProfile && (
+          <ProfileEditModal
+            isOpen={isEditingOwnProfile}
+            onClose={() => setIsEditingOwnProfile(false)}
+            currentProfile={currentStudentProfile}
+            onSave={handleSaveProfile}
+          />
+        )}
+
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>

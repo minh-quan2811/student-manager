@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
+import { colors, baseCard, primaryButton, outlineButton, baseInput } from '../styles/styles';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -18,6 +19,14 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
   const [lookingForGroup, setLookingForGroup] = useState(currentProfile.looking_for_group);
   const [currentSkill, setCurrentSkill] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setBio(currentProfile.bio);
+      setSkills(currentProfile.skills);
+      setLookingForGroup(currentProfile.looking_for_group);
+    }
+  }, [isOpen, currentProfile]);
 
   if (!isOpen) return null;
 
@@ -49,39 +58,49 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '1rem'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '20px',
-        maxWidth: '600px',
-        width: '100%',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-      }}>
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
+        }}
+      />
+      
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '90%',
+          maxWidth: '600px',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          ...baseCard,
+          zIndex: 1001,
+          padding: 0
+        }}
+      >
         {/* Header */}
-        <div style={{
-          padding: '1.5rem',
-          borderBottom: '2px solid #e5e7eb',
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          color: 'white',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderRadius: '20px 20px 0 0'
-        }}>
+        <div
+          style={{
+            padding: '1.5rem',
+            borderBottom: `2px solid ${colors.neutral.gray200}`,
+            background: colors.success.gradient,
+            color: 'white',
+            borderRadius: '16px 16px 0 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
             Edit Your Profile
           </h2>
@@ -94,7 +113,14 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               padding: '0.5rem',
               cursor: 'pointer',
               display: 'flex',
-              color: 'white'
+              color: 'white',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
             }}
           >
             <X size={20} />
@@ -109,7 +135,7 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               display: 'block',
               fontSize: '0.875rem',
               fontWeight: '600',
-              color: '#374151',
+              color: colors.neutral.gray900,
               marginBottom: '0.5rem'
             }}>
               Bio
@@ -120,15 +146,18 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               placeholder="Tell us about yourself..."
               rows={4}
               style={{
+                ...baseInput,
                 width: '100%',
-                padding: '0.75rem 1rem',
-                border: '2px solid #e5e7eb',
-                borderRadius: '10px',
-                fontSize: '0.9375rem',
-                outline: 'none',
                 resize: 'vertical',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box'
+                fontFamily: 'inherit'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#10b981';
+                e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = colors.neutral.gray200;
+                e.target.style.boxShadow = 'none';
               }}
             />
           </div>
@@ -139,7 +168,7 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               display: 'block',
               fontSize: '0.875rem',
               fontWeight: '600',
-              color: '#374151',
+              color: colors.neutral.gray900,
               marginBottom: '0.5rem'
             }}>
               Skills
@@ -152,26 +181,31 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
                 onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
                 placeholder="Add a skill"
                 style={{
-                  flex: 1,
-                  padding: '0.75rem 1rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '10px',
-                  fontSize: '0.9375rem',
-                  outline: 'none'
+                  ...baseInput,
+                  flex: 1
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#10b981';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = colors.neutral.gray200;
+                  e.target.style.boxShadow = 'none';
                 }}
               />
               <button
                 onClick={handleAddSkill}
                 style={{
-                  padding: '0.75rem 1rem',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                  ...outlineButton,
+                  padding: '0.875rem 1rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#10b981';
+                  e.currentTarget.style.background = colors.neutral.gray50;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = colors.neutral.gray200;
+                  e.currentTarget.style.background = colors.neutral.white;
                 }}
               >
                 <Plus size={18} />
@@ -184,12 +218,12 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
                     key={skill}
                     style={{
                       padding: '0.5rem 0.75rem',
-                      background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                      color: '#92400e',
+                      background: colors.warning.gradient,
+                      color: colors.warning.text,
                       borderRadius: '8px',
                       fontSize: '0.75rem',
                       fontWeight: '600',
-                      border: '2px solid #fde68a',
+                      border: `2px solid ${colors.warning.border}`,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem'
@@ -204,8 +238,9 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
                         cursor: 'pointer',
                         padding: 0,
                         display: 'flex',
-                        color: '#92400e'
-                      }}>
+                        color: colors.warning.text
+                      }}
+                    >
                       <Trash2 size={12} />
                     </button>
                   </span>
@@ -222,9 +257,9 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               gap: '0.75rem',
               cursor: 'pointer',
               padding: '1rem',
-              background: '#f9fafb',
+              background: colors.neutral.gray50,
               borderRadius: '12px',
-              border: '2px solid #e5e7eb'
+              border: `2px solid ${colors.neutral.gray200}`
             }}>
               <input
                 type="checkbox"
@@ -241,14 +276,14 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
                 <div style={{
                   fontSize: '0.875rem',
                   fontWeight: '600',
-                  color: '#374151',
+                  color: colors.neutral.gray900,
                   marginBottom: '0.25rem'
                 }}>
                   Looking for a group
                 </div>
                 <div style={{
                   fontSize: '0.75rem',
-                  color: '#6b7280'
+                  color: colors.neutral.gray600
                 }}>
                   Show that you're available to join research groups
                 </div>
@@ -262,15 +297,21 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               onClick={onClose}
               disabled={isSaving}
               style={{
+                ...outlineButton,
                 flex: 1,
-                padding: '0.875rem',
-                background: 'white',
-                color: '#6b7280',
-                border: '2px solid #e5e7eb',
-                borderRadius: '10px',
-                fontWeight: '600',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                opacity: isSaving ? 0.6 : 1
+                padding: '0.75rem',
+                opacity: isSaving ? 0.6 : 1,
+                cursor: isSaving ? 'not-allowed' : 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.background = colors.neutral.gray50;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.background = colors.neutral.white;
+                }
               }}
             >
               Cancel
@@ -279,21 +320,23 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
               onClick={handleSave}
               disabled={isSaving}
               style={{
+                ...primaryButton,
                 flex: 1,
-                padding: '0.875rem',
-                background: isSaving
-                  ? '#9ca3af'
-                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: '600',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                boxShadow: isSaving ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)'
+                padding: '0.75rem',
+                opacity: isSaving ? 0.6 : 1,
+                cursor: isSaving ? 'not-allowed' : 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary.shadowHover}`;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = `0 4px 12px ${colors.primary.shadow}`;
+                }
               }}
             >
               <Save size={18} />
@@ -302,6 +345,6 @@ export default function ProfileEditModal({ isOpen, onClose, currentProfile, onSa
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
