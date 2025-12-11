@@ -1,10 +1,10 @@
 import { X, Edit, Trash2, Mail, GraduationCap, Award } from 'lucide-react';
-import type { Student } from '../../data/mockData';
+import type { StudentWithUser } from '../../../../api/types';
 
 interface StudentDetailModalProps {
-  student: Student;
-  editData: Student;
-  setEditData: (data: Student) => void;
+  student: StudentWithUser;
+  editData: StudentWithUser;
+  setEditData: (data: StudentWithUser) => void;
   onClose: () => void;
   onSave: () => void;
   onDelete: () => void;
@@ -95,7 +95,7 @@ export default function StudentDetailModal({
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.9375rem' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <GraduationCap size={18} />
-                  {student.class}
+                  {student.year}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Award size={18} />

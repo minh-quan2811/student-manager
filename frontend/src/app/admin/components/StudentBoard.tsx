@@ -1,28 +1,27 @@
 import { useState } from 'react';
-import { Upload, Plus, X } from 'lucide-react';
-import { mockStudents, additionalStudents, faculties, years, type Student } from '../data/mockData';
+import { Plus, Upload } from 'lucide-react';
+import { studentsApi } from '../../../api';
+import type { StudentWithUser } from '../../../api/types';
 import StudentDetailModal from './modals/StudentDetailModal';
+import CreateAccountModal from './CreateAccountModal';
+import CSVUploadModal from './CSVUploadModal';
 
-export default function StudentBoard() {
-  const [students, setStudents] = useState<Student[]>(mockStudents);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+const faculties = ['all', 'Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'FAST'];
+const years = ['all', '2020', '2021', '2022', '2023', '2024'];
+
+interface StudentBoardProps {
+  students: StudentWithUser[];
+  setStudents: (students: StudentWithUser[]) => void;
+}
+
+export default function StudentBoard({ students, setStudents }: StudentBoardProps) {
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithUser | null>(null);
   const [filterFaculty, setFilterFaculty] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
-  const [editData, setEditData] = useState<Student | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newStudent, setNewStudent] = useState<Student>({
-    id: '',
-    name: '',
-    class: '',
-    faculty: 'Computer Science',
-    year: 2024,
-    gpa: 0,
-    major: '',
-    email: '',
-    skills: [],
-    bio: ''
-  });
-
+  const [editData, setEditData] = useState<StudentWithUser | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showCSVModal, setShowCSVModal] = useState<boolean>(false);
+  
   const getFilteredStudents = () => {
     let filtered = students;
     
@@ -31,66 +30,54 @@ export default function StudentBoard() {
     }
     
     if (filterYear !== 'all') {
-      filtered = filtered.filter(s => s.year.toString() === filterYear);
+      filtered = filtered.filter(s => s.year === filterYear);
     }
     
     return filtered;
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setStudents([...students, ...additionalStudents]);
-      alert(`File "${file.name}" uploaded! Added ${additionalStudents.length} new students.`);
-      e.target.value = '';
+  const handleSave = async () => {
+    if (editData && selectedStudent) {
+      try {
+        const updated = await studentsApi.update(selectedStudent.id, {
+          gpa: editData.gpa,
+          major: editData.major,
+          faculty: editData.faculty,
+          year: editData.year,
+          skills: editData.skills,
+          bio: editData.bio,
+          looking_for_group: editData.looking_for_group
+        });
+        
+        setStudents(students.map(s => s.id === updated.id ? updated : s));
+        setSelectedStudent(null);
+        setEditData(null);
+        alert('Student updated successfully!');
+      } catch (error) {
+        console.error('Failed to update student:', error);
+        alert('Failed to update student. Please try again.');
+      }
     }
   };
 
-  const handleSave = () => {
-    if (editData) {
-      setStudents(students.map(s => s.id === editData.id ? editData : s));
-      setSelectedStudent(null);
-      setEditData(null);
-      alert('Student updated successfully!');
-    }
-  };
-
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedStudent && window.confirm(`Delete ${selectedStudent.name}?`)) {
-      setStudents(students.filter(s => s.id !== selectedStudent.id));
-      setSelectedStudent(null);
-      setEditData(null);
-      alert('Student deleted successfully!');
+      try {
+        await studentsApi.delete(selectedStudent.id);
+        setStudents(students.filter(s => s.id !== selectedStudent.id));
+        setSelectedStudent(null);
+        setEditData(null);
+        alert('Student deleted successfully!');
+      } catch (error) {
+        console.error('Failed to delete student:', error);
+        alert('Failed to delete student. Please try again.');
+      }
     }
   };
 
-  const handleCreate = () => {
-    if (!newStudent.name || !newStudent.email || !newStudent.major || !newStudent.class) {
-      alert('Please fill in all required fields!');
-      return;
-    }
-
-    const id = `S${String(students.length + 1).padStart(3, '0')}`;
-    setStudents([...students, { ...newStudent, id }]);
-    setShowCreateModal(false);
-    setNewStudent({
-      id: '',
-      name: '',
-      class: '',
-      faculty: 'Computer Science',
-      year: 2024,
-      gpa: 0,
-      major: '',
-      email: '',
-      skills: [],
-      bio: ''
-    });
-    alert('Student created successfully!');
-  };
-
-  const openModal = (student: Student) => {
+  const openModal = (student: StudentWithUser) => {
     setSelectedStudent(student);
-    setEditData({...student});
+    setEditData({ ...student });
   };
 
   const getGPAColor = (gpa: number) => {
@@ -123,7 +110,7 @@ export default function StudentBoard() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select
             value={filterFaculty}
-            onChange={(e) => setFilterFaculty(e.target.value)}
+            onChange={e => setFilterFaculty(e.target.value)}
             style={{
               padding: '0.625rem 1rem',
               border: '2px solid #e5e7eb',
@@ -136,13 +123,15 @@ export default function StudentBoard() {
             }}
           >
             {faculties.map((f: string) => (
-              <option key={f} value={f}>{f === 'all' ? 'All Faculties' : f}</option>
+              <option key={f} value={f}>
+                {f === 'all' ? 'All Faculties' : f}
+              </option>
             ))}
           </select>
 
           <select
             value={filterYear}
-            onChange={(e) => setFilterYear(e.target.value)}
+            onChange={e => setFilterYear(e.target.value)}
             style={{
               padding: '0.625rem 1rem',
               border: '2px solid #e5e7eb',
@@ -159,24 +148,27 @@ export default function StudentBoard() {
             ))}
           </select>
 
-          <label style={{
-            padding: '0.625rem 1.25rem',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.875rem',
-            fontWeight: '600',
-            boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-            transition: 'all 0.3s'
-          }}>
+          <button
+            onClick={() => setShowCSVModal(true)}
+            style={{
+              padding: '0.625rem 1.25rem',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s'
+            }}
+          >
             <Upload size={16} />
             Upload CSV
-            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
+          </button>
 
           <button
             onClick={() => setShowCreateModal(true)}
@@ -197,9 +189,9 @@ export default function StudentBoard() {
             }}
           >
             <Plus size={16} />
-            Create
+            Create Student
           </button>
-        </div>
+        </div>    
       </div>
 
       {/* Student Cards Grid */}
@@ -242,7 +234,7 @@ export default function StudentBoard() {
                     fontWeight: '600',
                     marginBottom: '0.25rem' 
                   }}>
-                    {student.id}
+                    ID: {student.student_id}
                   </div>
                   <h3 style={{ 
                     fontSize: '1.25rem', 
@@ -258,7 +250,7 @@ export default function StudentBoard() {
                     color: '#6b7280',
                     fontWeight: '500'
                   }}>
-                    {student.class}
+                    {student.email}
                   </div>
                 </div>
                 <div style={{ 
@@ -331,259 +323,70 @@ export default function StudentBoard() {
           student={selectedStudent}
           editData={editData}
           setEditData={setEditData}
-          onClose={() => { setSelectedStudent(null); setEditData(null); }}
+          onClose={() => {
+            setSelectedStudent(null);
+            setEditData(null);
+          }}
           onSave={handleSave}
           onDelete={handleDelete}
         />
       )}
+      
+      {/* Create Account Modal - Using API */}
+      <CreateAccountModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        accountType="student"
+        onSubmit={async (accountData) => {
+          try {
+            const newStudent = await studentsApi.createAccount(accountData);
+            setStudents([newStudent, ...students]);
+            setShowCreateModal(false);
+            alert('Student account created successfully!');
+          } catch (error: any) {
+            console.error('Failed to create student:', error);
+            alert(`Failed to create student account: ${error.response?.data?.detail || error.message}`);
+            throw error;
+          }
+        }}
+      />
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem'
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '20px',
-              padding: '2rem',
-              maxWidth: '600px',
-              width: '100%',
-              maxHeight: '85vh',
-              overflow: 'auto',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
-                  Create Student
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
-                  Add a new student to the system
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '0.25rem'
-                }}
-              >
-                <X size={24} color="#6b7280" />
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  value={newStudent.name}
-                  onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={newStudent.email}
-                  onChange={e => setNewStudent({ ...newStudent, email: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Class *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., CS-2024"
-                  value={newStudent.class}
-                  onChange={e => setNewStudent({ ...newStudent, class: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Major *
-                </label>
-                <input
-                  type="text"
-                  value={newStudent.major}
-                  onChange={e => setNewStudent({ ...newStudent, major: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Faculty *
-                </label>
-                <select
-                  value={newStudent.faculty}
-                  onChange={e => setNewStudent({ ...newStudent, faculty: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  {faculties.filter(f => f !== 'all').map((f: string) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                    Year
-                  </label>
-                  <input
-                    type="number"
-                    value={newStudent.year}
-                    onChange={e => setNewStudent({ ...newStudent, year: parseInt(e.target.value) || 2024 })}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '10px',
-                      fontSize: '0.9375rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                    GPA
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newStudent.gpa}
-                    onChange={e => setNewStudent({ ...newStudent, gpa: parseFloat(e.target.value) || 0 })}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '10px',
-                      fontSize: '0.9375rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
-                  Skills (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Python, Java, Machine Learning"
-                  value={newStudent.skills?.join(', ') || ''}
-                  onChange={e => setNewStudent({ ...newStudent, skills: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '0.9375rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleCreate}
-              style={{
-                width: '100%',
-                padding: '0.875rem',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '0.9375rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
-              }}
-            >
-              <Plus size={18} />
-              Create Student
-            </button>
-          </div>
-        </div>
-      )}
+      {/* CSV Upload Modal - Using API */}
+      <CSVUploadModal
+        isOpen={showCSVModal}
+        onClose={() => setShowCSVModal(false)}
+        accountType="student"
+        onSubmit={async (studentsData) => {
+          try {
+            const result = await studentsApi.createBulk(studentsData);
+            
+            // Check if any accounts were created
+            if (result.success === 0) {
+              const errorDetails = result.errors && result.errors.length > 0 
+                ? result.errors.join('\n') 
+                : 'No accounts were created. Please check the CSV format.';
+              throw new Error(errorDetails);
+            }
+            
+            // Refresh the students list
+            const updatedStudents = await studentsApi.getAll();
+            setStudents(updatedStudents);
+            
+            setShowCSVModal(false);
+            
+            // Show detailed success message
+            let message = `Successfully created ${result.success} student account(s)!`;
+            if (result.failed > 0) {
+              message += `\n\n${result.failed} failed:\n${result.errors.join('\n')}`;
+            }
+            alert(message);
+          } catch (error: any) {
+            console.error('Failed to create students:', error);
+            alert(error.message || 'Failed to create any accounts. Please check the CSV format and try again.');
+            throw error;
+          }
+        }}
+      />
     </>
   );
 }

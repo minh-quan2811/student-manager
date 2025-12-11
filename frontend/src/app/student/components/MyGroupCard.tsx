@@ -1,19 +1,26 @@
-// frontend/src/app/student/components/MyGroupCard.tsx
-import { Users, Crown, Edit, Trash2, UserMinus, Award } from 'lucide-react';
+import { Users, Crown, Edit, Trash2, UserMinus, Award, MessageSquare } from 'lucide-react';
 import { colors, baseCard, primaryButton, dangerButton, outlineButton } from '../styles/styles';
 import type { Group } from '../data/mockData';
-import { CURRENT_USER_ID } from '../data/mockData';
 
 interface MyGroupCardProps {
   group: Group;
+  currentStudentId?: number;
   onEdit?: (groupId: number) => void;
   onDelete?: (groupId: number) => void;
   onLeave?: (groupId: number) => void;
+  onOpenChat?: (groupId: number, groupName: string) => void;
 }
 
-export default function MyGroupCard({ group, onEdit, onDelete, onLeave }: MyGroupCardProps) {
-  const isLeader = group.leaderId === CURRENT_USER_ID;
-  const userRole = group.members?.find(m => m.id === CURRENT_USER_ID)?.role;
+export default function MyGroupCard({ 
+  group, 
+  currentStudentId, 
+  onEdit, 
+  onDelete, 
+  onLeave,
+  onOpenChat 
+}: MyGroupCardProps) {
+  const isLeader = currentStudentId !== undefined && group.leaderId === currentStudentId;
+  const userRole = group.members?.find(m => currentStudentId && m.id === currentStudentId)?.role;
 
   return (
     <div
@@ -179,6 +186,28 @@ export default function MyGroupCard({ group, onEdit, onDelete, onLeave }: MyGrou
           </div>
         </div>
       )}
+
+      {/* Chat Button - Always visible for all members */}
+      <button
+        onClick={() => onOpenChat?.(group.id, group.name)}
+        style={{
+          ...primaryButton,
+          width: '100%',
+          padding: '0.75rem',
+          marginBottom: '0.75rem'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary.shadowHover}`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = `0 4px 12px ${colors.primary.shadow}`;
+        }}
+      >
+        <MessageSquare size={16} />
+        Open Group Chat
+      </button>
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: '0.5rem' }}>

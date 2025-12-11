@@ -1,5 +1,4 @@
-// frontend/src/app/student/components/ProfessorCard.tsx
-import { MessageSquare, Award } from 'lucide-react';
+import { Award, Send } from 'lucide-react';
 import { colors, baseCard, secondaryButton, badge } from '../styles/styles';
 
 interface Professor {
@@ -15,17 +14,20 @@ interface Professor {
 interface ProfessorCardProps {
   professor: Professor;
   onRequestMentorship: (id: number) => void;
+  onViewProfile?: (id: number) => void;
 }
 
-export default function ProfessorCard({ professor, onRequestMentorship }: ProfessorCardProps) {
+export default function ProfessorCard({ professor, onRequestMentorship, onViewProfile }: ProfessorCardProps) {
   const hasSlots = professor.availableSlots > 0;
 
   return (
     <div
       style={baseCard}
+      onClick={() => onViewProfile?.(professor.id)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
+        e.currentTarget.style.cursor = 'pointer';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0)';
@@ -48,7 +50,7 @@ export default function ProfessorCard({ professor, onRequestMentorship }: Profes
             boxShadow: `0 4px 12px ${colors.secondary.shadow}`
           }}
         >
-          {professor.name.split(' ')[1][0]}
+          {professor.name.split(' ')[1]?.[0] || professor.name[0]}
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: colors.neutral.gray900 }}>
@@ -106,7 +108,10 @@ export default function ProfessorCard({ professor, onRequestMentorship }: Profes
 
       {hasSlots && (
         <button
-          onClick={() => onRequestMentorship(professor.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestMentorship(professor.id);
+          }}
           style={{
             ...secondaryButton,
             width: '100%'
@@ -120,7 +125,7 @@ export default function ProfessorCard({ professor, onRequestMentorship }: Profes
             e.currentTarget.style.boxShadow = `0 4px 12px ${colors.secondary.shadow}`;
           }}
         >
-          <MessageSquare size={16} />
+          <Send size={16} />
           Request Mentorship
         </button>
       )}

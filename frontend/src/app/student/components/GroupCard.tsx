@@ -1,31 +1,35 @@
-// frontend/src/app/student/components/GroupCard.tsx
 import { UserPlus, Users, Award } from 'lucide-react';
 import { colors, baseCard, primaryButton, badge, iconContainer } from '../styles/styles';
-
-interface Group {
-  id: number;
-  name: string;
-  leaderId: number;
-  leaderName: string;
-  description: string;
-  neededSkills: string[];
-  currentMembers: number;
-  maxMembers: number;
-  hasMentor: boolean;
-  mentorName?: string;
-}
+import type { GroupWithMentors } from '../../../api/groups';
 
 interface GroupCardProps {
-  group: Group;
+  group: GroupWithMentors & {
+    leaderId: number;
+    leaderName: string;
+    neededSkills: string[];
+    currentMembers: number;
+    maxMembers: number;
+    hasMentor: boolean;
+  };
   onJoinRequest: (id: number) => void;
+  onViewDetails?: (id: number) => void;
+  isAlreadyMember?: boolean;
+  isLeader?: boolean;
 }
 
-export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
+export default function GroupCard({ 
+  group, 
+  onJoinRequest, 
+  onViewDetails,
+  isAlreadyMember = false, 
+  isLeader = false 
+}: GroupCardProps) {
   const isFull = group.currentMembers >= group.maxMembers;
 
   return (
     <div
-      style={baseCard}
+      style={{ ...baseCard, cursor: onViewDetails ? 'pointer' : 'default' }}
+      onClick={() => onViewDetails?.(group.id)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
@@ -37,7 +41,9 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
     >
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}
+          >
             <div
               style={{
                 ...iconContainer,
@@ -68,21 +74,42 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
         <p style={{ fontSize: '0.875rem', color: colors.neutral.gray600, margin: '0 0 0.5rem 0' }}>
           Led by <span style={{ fontWeight: '600', color: colors.neutral.gray900 }}>{group.leaderName}</span>
         </p>
-        {group.hasMentor && (
-          <p
-            style={{
-              fontSize: '0.875rem',
-              color: colors.success.text,
-              margin: 0,
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}
-          >
-            <Award size={14} />
-            Mentor: {group.mentorName}
-          </p>
+        {group.hasMentor && group.mentors && group.mentors.length > 0 && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <p
+              style={{
+                fontSize: '0.875rem',
+                color: colors.success.text,
+                margin: 0,
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                marginBottom: '0.25rem'
+              }}
+            >
+              <Award size={14} />
+              Mentor{group.mentors.length > 1 ? 's' : ''}: {group.mentors.length}/2
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {group.mentors.map((mentor) => (
+                <div
+                  key={mentor.id}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    background: colors.warning.gradient,
+                    color: colors.warning.text,
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    border: `2px solid ${colors.warning.border}`
+                  }}
+                >
+                  {mentor.name}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -119,9 +146,12 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
         </div>
       </div>
 
-      {!isFull && (
+      {!isFull && !isLeader && !isAlreadyMember && (
         <button
-          onClick={() => onJoinRequest(group.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onJoinRequest(group.id);
+          }}
           style={{
             ...primaryButton,
             width: '100%'
@@ -138,6 +168,36 @@ export default function GroupCard({ group, onJoinRequest }: GroupCardProps) {
           <UserPlus size={16} />
           Request to Join
         </button>
+      )}
+
+      {isLeader && (
+        <div style={{
+          padding: '0.75rem',
+          background: colors.success.light,
+          color: colors.success.text,
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontWeight: '600',
+          fontSize: '0.875rem',
+          border: `2px solid ${colors.success.border}`
+        }}>
+          You are the leader of this group
+        </div>
+      )}
+
+      {!isLeader && isAlreadyMember && (
+        <div style={{
+          padding: '0.75rem',
+          background: colors.primary.gradient,
+          color: 'white',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontWeight: '600',
+          fontSize: '0.875rem',
+          boxShadow: `0 2px 8px ${colors.primary.shadow}`
+        }}>
+          You are a member of this group
+        </div>
       )}
     </div>
   );

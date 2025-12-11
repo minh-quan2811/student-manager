@@ -1,23 +1,26 @@
-// frontend/src/app/student/components/DashboardHeader.tsx
 import { LogOut } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { colors } from '../styles/styles';
-import type { GroupInvitation } from '../data/mockData';
+import type { Notification } from '../../../api/notifications';
 
 interface DashboardHeaderProps {
   userName: string;
   onLogout: () => void;
-  invitations: GroupInvitation[];
-  onAcceptInvitation: (invitationId: number) => void;
-  onRejectInvitation: (invitationId: number) => void;
+  onEditProfile: () => void;
+  notifications: Notification[];
+  unreadCount: number;
+  onNotificationClick: (notificationId: number) => void;
+  onNotificationAction?: (notificationId: number, action: 'accept' | 'reject') => Promise<void>;
 }
 
 export default function DashboardHeader({ 
   userName, 
-  onLogout, 
-  invitations, 
-  onAcceptInvitation, 
-  onRejectInvitation 
+  onLogout,
+  onEditProfile,
+  notifications,
+  unreadCount,
+  onNotificationClick,
+  onNotificationAction
 }: DashboardHeaderProps) {
   return (
     <div
@@ -53,18 +56,28 @@ export default function DashboardHeader({
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <NotificationBell
-            invitations={invitations}
-            onAccept={onAcceptInvitation}
-            onReject={onRejectInvitation}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onNotificationClick={onNotificationClick}
+            onActionClick={onNotificationAction}
           />
           <div
+            onClick={onEditProfile}
             style={{
               padding: '0.625rem 1.25rem',
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '10px',
               fontSize: '0.875rem',
               fontWeight: '600',
-              backdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(10px)',
+              cursor: 'pointer',
+              transition: 'all 0.3s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
             }}
           >
             {userName}

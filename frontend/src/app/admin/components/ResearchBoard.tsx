@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { Upload } from 'lucide-react';
-import { mockResearch, additionalResearch, faculties, years, type Research } from '../data/mockData';
+import { researchApi } from '../../../api';
+import type { ResearchPaper } from '../../../api/types';
 import ResearchDetailModal from './modals/ResearchDetailModal';
 
-export default function ResearchBoard() {
-  const [research, setResearch] = useState<Research[]>(mockResearch);
-  const [selectedResearch, setSelectedResearch] = useState<Research | null>(null);
+const faculties = ['all', 'Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'FAST'];
+const years = ['all', '2020', '2021', '2022', '2023', '2024'];
+
+interface ResearchBoardProps {
+  research: ResearchPaper[];
+  setResearch: (research: ResearchPaper[]) => void;
+}
+
+export default function ResearchBoard({ research, setResearch }: ResearchBoardProps) {
+  const [selectedResearch, setSelectedResearch] = useState<ResearchPaper | null>(null);
   const [filterFaculty, setFilterFaculty] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
-  const [editData, setEditData] = useState<Research | null>(null);
+  const [editData, setEditData] = useState<ResearchPaper | null>(null);
 
   const getFilteredResearch = () => {
     let filtered = research;
@@ -27,31 +35,54 @@ export default function ResearchBoard() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setResearch([...research, ...additionalResearch]);
-      alert(`File "${file.name}" uploaded! Added ${additionalResearch.length} new research groups.`);
+      alert(`CSV upload functionality would be implemented here for file: ${file.name}`);
       e.target.value = '';
     }
   };
 
-  const handleSave = () => {
-    if (editData) {
-      setResearch(research.map(r => r.id === editData.id ? editData : r));
-      setSelectedResearch(null);
-      setEditData(null);
-      alert('Research group updated successfully!');
+  const handleSave = async () => {
+    if (editData && selectedResearch) {
+      try {
+        const updated = await researchApi.update(selectedResearch.id, {
+          group_name: editData.group_name,
+          topic: editData.topic,
+          description: editData.description,
+          abstract: editData.abstract,
+          faculty: editData.faculty,
+          year: editData.year,
+          rank: editData.rank,
+          members: editData.members,
+          leader: editData.leader,
+          paper_path: editData.paper_path
+        });
+        
+        setResearch(research.map(r => r.id === updated.id ? updated : r));
+        setSelectedResearch(null);
+        setEditData(null);
+        alert('Research paper updated successfully!');
+      } catch (error) {
+        console.error('Failed to update research paper:', error);
+        alert('Failed to update research paper. Please try again.');
+      }
     }
   };
 
-  const handleDelete = () => {
-    if (selectedResearch && confirm(`Delete ${selectedResearch.groupName}?`)) {
-      setResearch(research.filter(r => r.id !== selectedResearch.id));
-      setSelectedResearch(null);
-      setEditData(null);
-      alert('Research group deleted successfully!');
+  const handleDelete = async () => {
+    if (selectedResearch && window.confirm(`Delete ${selectedResearch.group_name}?`)) {
+      try {
+        await researchApi.delete(selectedResearch.id);
+        setResearch(research.filter(r => r.id !== selectedResearch.id));
+        setSelectedResearch(null);
+        setEditData(null);
+        alert('Research paper deleted successfully!');
+      } catch (error) {
+        console.error('Failed to delete research paper:', error);
+        alert('Failed to delete research paper. Please try again.');
+      }
     }
   };
 
-  const openModal = (researchItem: Research) => {
+  const openModal = (researchItem: ResearchPaper) => {
     setSelectedResearch(researchItem);
     setEditData({...researchItem});
   };
@@ -183,7 +214,7 @@ export default function ResearchBoard() {
                     fontWeight: '600',
                     marginBottom: '0.25rem' 
                   }}>
-                    {researchItem.id}
+                    {researchItem.paper_id}
                   </div>
                   <h3 style={{ 
                     fontSize: '1.25rem', 
@@ -192,7 +223,7 @@ export default function ResearchBoard() {
                     margin: 0,
                     marginBottom: '0.25rem'
                   }}>
-                    {researchItem.groupName}
+                    {researchItem.group_name}
                   </h3>
                   <div style={{ 
                     fontSize: '0.875rem', 

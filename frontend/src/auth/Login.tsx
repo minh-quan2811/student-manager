@@ -8,18 +8,28 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = login(email, password);
+    try {
+      const success = await login(email, password);
       
       if (!success) {
         setError('Invalid email or password');
       }
+    } catch (err) {
+      setError('An error occurred during login');
+      console.error('Login error:', err);
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
   };
 
   return (
@@ -92,7 +102,9 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="you@research.edu"
+                disabled={isLoading}
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem',
@@ -101,7 +113,8 @@ export default function Login() {
                   borderRadius: '10px',
                   outline: 'none',
                   transition: 'all 0.2s',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  opacity: isLoading ? 0.6 : 1
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#667eea'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
@@ -122,7 +135,9 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="••••••••"
+                disabled={isLoading}
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem',
@@ -131,7 +146,8 @@ export default function Login() {
                   borderRadius: '10px',
                   outline: 'none',
                   transition: 'all 0.2s',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  opacity: isLoading ? 0.6 : 1
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#667eea'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
