@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     
     # API
     API_V1_PREFIX: str
-    PROJECT_NAME: str
     
     # CORS
     BACKEND_CORS_ORIGINS: list
