@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.schemas.notification import Notification, NotificationMarkRead, GroupJoinRequestAction, GroupInvitationAction
+from app.schemas.notification import (
+    Notification, NotificationMarkRead, 
+    GroupJoinRequestAction, GroupInvitationAction
+)
 from app.models.notification import Notification as NotificationModel
-from app.models.group import GroupJoinRequest as GroupJoinRequestModel, GroupMember, GroupInvitation
+from app.models.group import GroupJoinRequest, GroupInvitation
 from app.models.student import Student
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.crud import group as crud_group
+from app.crud import notification as crud_notification
 
 router = APIRouter()
 
@@ -115,7 +118,7 @@ def handle_group_join_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Accept or reject a group join request from notification"""
+    """Accept or reject a group join request - uses CRUD layer for business logic"""
     # Get the notification
     notification = db.query(NotificationModel).filter(
         NotificationModel.id == data.notification_id,
@@ -128,83 +131,30 @@ def handle_group_join_request(
     if notification.type != "join_request":
         raise HTTPException(status_code=400, detail="Notification is not a group join request")
     
-    # Get the join request using related_request_id
-    join_request = db.query(GroupJoinRequestModel).filter(
-        GroupJoinRequestModel.id == notification.related_request_id
+    # Get the join request
+    join_request = db.query(GroupJoinRequest).filter(
+        GroupJoinRequest.id == notification.related_request_id
     ).first()
     
     if not join_request:
         raise HTTPException(status_code=404, detail="Join request not found")
     
-    # Verify the current user is the group leader
-    group = join_request.group
+    # Verify authorization - current user must be group leader
     student = db.query(Student).filter(Student.user_id == current_user.id).first()
+    if current_user.role != "admin":
+        if not student or student.id != join_request.group.leader_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the group leader can accept/reject join requests"
+            )
     
-    if group.leader_id != current_user.id and current_user.role != "admin":
-        if not student or student.id != group.leader_id:
-            raise HTTPException(status_code=403, detail="Only the group leader can accept/reject join requests")
-    
+    # Process the action using CRUD layer
     if data.action.lower() == "accept":
-        # Add student to group
-        member = GroupMember(
-            group_id=join_request.group_id,
-            student_id=join_request.student_id,
-            role="member"
-        )
-        db.add(member)
-        
-        # Update group member count
-        group.current_members += 1
-        
-        # Update join request status
-        join_request.status = "accepted"
-        
-        # Mark notification as read
-        notification.read = True
-        
-        db.commit()
-        
-        # Create notification for the student who requested to join
-        requesting_student = db.query(Student).filter(Student.id == join_request.student_id).first()
-        if requesting_student:
-            acceptance_notification = NotificationModel(
-                user_id=requesting_student.user_id,
-                type="join_request_accepted",
-                title="Join Request Accepted",
-                message=f"Your request to join {group.name} has been accepted",
-                related_group_id=group.id,
-                link=f"/student/groups/{group.id}"
-            )
-            db.add(acceptance_notification)
-            db.commit()
-        
+        crud_notification.accept_join_request(db, join_request, notification)
         return {"message": "Join request accepted", "status": "accepted"}
-    
     elif data.action.lower() == "reject":
-        # Update join request status
-        join_request.status = "rejected"
-        
-        # Mark notification as read
-        notification.read = True
-        
-        db.commit()
-        
-        # Create notification for the student who requested to join
-        requesting_student = db.query(Student).filter(Student.id == join_request.student_id).first()
-        if requesting_student:
-            rejection_notification = NotificationModel(
-                user_id=requesting_student.user_id,
-                type="join_request_rejected",
-                title="Join Request Rejected",
-                message=f"Your request to join {group.name} has been rejected",
-                related_group_id=group.id,
-                link=None
-            )
-            db.add(rejection_notification)
-            db.commit()
-        
+        crud_notification.reject_join_request(db, join_request, notification)
         return {"message": "Join request rejected", "status": "rejected"}
-    
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'accept' or 'reject'")
 
@@ -215,7 +165,7 @@ def handle_group_invitation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Accept or reject a group invitation from notification"""
+    """Accept or reject a group invitation - uses CRUD layer for business logic"""
     # Get the notification
     notification = db.query(NotificationModel).filter(
         NotificationModel.id == data.notification_id,
@@ -228,7 +178,7 @@ def handle_group_invitation(
     if notification.type != "group_invitation":
         raise HTTPException(status_code=400, detail="Notification is not a group invitation")
     
-    # Get the invitation using related_request_id
+    # Get the invitation
     invitation = db.query(GroupInvitation).filter(
         GroupInvitation.id == notification.related_request_id
     ).first()
@@ -236,76 +186,17 @@ def handle_group_invitation(
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found")
     
-    # Verify the current user is the invited student
+    # Verify authorization - current user must be the invited student
     student = db.query(Student).filter(Student.user_id == current_user.id).first()
     if not student or student.id != invitation.student_id:
         raise HTTPException(status_code=403, detail="This invitation is not for you")
     
-    group = invitation.group if hasattr(invitation, 'group') else crud_group.get_group(db, invitation.group_id)
-    
+    # Process the action using CRUD layer
     if data.action.lower() == "accept":
-        # Add student to group
-        member = GroupMember(
-            group_id=invitation.group_id,
-            student_id=invitation.student_id,
-            role="member"
-        )
-        db.add(member)
-        
-        # Update group member count
-        if group:
-            group.current_members += 1
-        
-        # Update invitation status
-        invitation.status = "accepted"
-        
-        # Mark notification as read
-        notification.read = True
-        
-        db.commit()
-        
-        # Create notification for the group leader
-        leader_student = db.query(Student).filter(Student.id == group.leader_id).first()
-        if leader_student:
-            acceptance_notification = NotificationModel(
-                user_id=leader_student.user_id,
-                type="invitation_accepted",
-                title="Invitation Accepted",
-                message=f"{student.user.name} has accepted your invitation to join {group.name}",
-                related_group_id=group.id,
-                related_student_id=student.id,
-                link=f"/student/mygroups"
-            )
-            db.add(acceptance_notification)
-            db.commit()
-        
+        crud_notification.accept_invitation(db, invitation, notification, student)
         return {"message": "Invitation accepted", "status": "accepted"}
-    
     elif data.action.lower() == "reject":
-        # Update invitation status
-        invitation.status = "rejected"
-        
-        # Mark notification as read
-        notification.read = True
-        
-        db.commit()
-        
-        # Create notification for the group leader
-        leader_student = db.query(Student).filter(Student.id == group.leader_id).first()
-        if leader_student:
-            rejection_notification = NotificationModel(
-                user_id=leader_student.user_id,
-                type="invitation_rejected",
-                title="Invitation Rejected",
-                message=f"{student.user.name} has rejected your invitation to join {group.name}",
-                related_group_id=group.id,
-                related_student_id=student.id,
-                link=None
-            )
-            db.add(rejection_notification)
-            db.commit()
-        
+        crud_notification.reject_invitation(db, invitation, notification, student)
         return {"message": "Invitation rejected", "status": "rejected"}
-    
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'accept' or 'reject'")

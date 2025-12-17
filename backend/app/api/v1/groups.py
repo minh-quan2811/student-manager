@@ -1,31 +1,62 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.database import get_db
 from app.schemas.group import (
     Group, GroupCreate, GroupUpdate, GroupInvitation, 
     GroupInvitationCreate, GroupJoinRequest, GroupJoinRequestCreate, GroupMember
 )
-from app.schemas.notification import Notification as NotificationSchema, NotificationCreate
-from app.crud import group as crud_group
+from app.schemas.notification import NotificationCreate
+from app.crud import group as crud_group, notification as crud_notification
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.group import Group as GroupModel, GroupMember as GroupMemberModel, GroupJoinRequest as GroupJoinRequestModel
 from app.models.student import Student
 from app.models.professor import Professor
-from app.models.notification import Notification
-from app.models.group import group_mentors
 
 router = APIRouter()
 
 
-def create_notification(db: Session, notification: NotificationCreate):
-    """Helper function to create notifications"""
-    db_notification = Notification(**notification.dict())
-    db.add(db_notification)
-    db.commit()
-    db.refresh(db_notification)
-    return db_notification
+def is_group_leader(db: Session, user: User, group: GroupModel) -> bool:
+    """Check if user is the group leader"""
+    if user.role == "admin":
+        return True
+    student = db.query(Student).filter(Student.user_id == user.id).first()
+    return student and student.id == group.leader_id
+
+
+def enrich_group_with_mentors(db: Session, group: GroupModel) -> dict:
+    """
+    Enrich a single group with mentor information.
+    Used to avoid N+1 queries when we can't use joinedload.
+    """
+    from app.models.group import group_mentors
+    
+    group_dict = {
+        **group.__dict__,
+        "mentors": [],
+        "mentor_count": group.mentor_count or 0
+    }
+    
+    if group.has_mentor:
+        # Use join to get mentors efficiently
+        mentor_data = db.query(Professor).join(
+            group_mentors,
+            group_mentors.c.professor_id == Professor.id
+        ).filter(
+            group_mentors.c.group_id == group.id
+        ).all()
+        
+        for professor in mentor_data:
+            group_dict["mentors"].append({
+                "id": professor.id,
+                "name": professor.user.name,
+                "email": professor.user.email,
+                "department": professor.department,
+                "research_areas": professor.research_areas
+            })
+    
+    return group_dict
 
 
 @router.get("/", response_model=List[Group])
@@ -35,34 +66,46 @@ def read_groups(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Get all groups with eager-loaded mentors to avoid N+1 queries"""
+    from app.models.group import group_mentors
+    
+    # Get groups
     groups_data = crud_group.get_groups(db, skip=skip, limit=limit)
     
-    # Enrich groups with mentor information
+    # Get all mentor relationships for these groups in ONE query
+    group_ids = [g.id for g in groups_data]
+    
+    mentor_data = db.query(
+        group_mentors.c.group_id,
+        Professor
+    ).join(
+        Professor,
+        group_mentors.c.professor_id == Professor.id
+    ).filter(
+        group_mentors.c.group_id.in_(group_ids)
+    ).all()
+    
+    # Build mentor lookup
+    mentor_lookup = {}
+    for group_id, professor in mentor_data:
+        if group_id not in mentor_lookup:
+            mentor_lookup[group_id] = []
+        mentor_lookup[group_id].append({
+            "id": professor.id,
+            "name": professor.user.name,
+            "email": professor.user.email,
+            "department": professor.department,
+            "research_areas": professor.research_areas
+        })
+    
+    # Enrich groups
     result = []
     for group in groups_data:
         group_dict = {
             **group.__dict__,
-            "mentors": [],
+            "mentors": mentor_lookup.get(group.id, []),
             "mentor_count": group.mentor_count or 0
         }
-        
-        # Fetch mentors if group has any
-        if group.has_mentor:
-            mentor_records = db.execute(
-                group_mentors.select().where(group_mentors.c.group_id == group.id)
-            ).fetchall()
-            
-            for record in mentor_records:
-                professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
-                if professor:
-                    group_dict["mentors"].append({
-                        "id": professor.id,
-                        "name": professor.user.name,
-                        "email": professor.user.email,
-                        "department": professor.department,
-                        "research_areas": professor.research_areas
-                    })
-        
         result.append(group_dict)
     
     return result
@@ -73,47 +116,52 @@ def read_my_groups(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all groups where current user is a member (including as leader)"""
-    # Get current student
+    """Get all groups where current user is a member"""
     student = db.query(Student).filter(Student.user_id == current_user.id).first()
     if not student:
         return []
     
-    # Get all group memberships
-    group_members = db.query(GroupMemberModel).filter(
+    # Get groups with single query using join
+    groups_data = db.query(GroupModel).join(
+        GroupMemberModel,
+        GroupMemberModel.group_id == GroupModel.id
+    ).filter(
         GroupMemberModel.student_id == student.id
     ).all()
     
-    # Get the actual groups
-    group_ids = [gm.group_id for gm in group_members]
-    groups_data = db.query(GroupModel).filter(GroupModel.id.in_(group_ids)).all()
+    # Use the same mentor enrichment logic
+    group_ids = [g.id for g in groups_data]
+    from app.models.group import group_mentors
     
-    # Enrich groups with mentor information
+    mentor_data = db.query(
+        group_mentors.c.group_id,
+        Professor
+    ).join(
+        Professor,
+        group_mentors.c.professor_id == Professor.id
+    ).filter(
+        group_mentors.c.group_id.in_(group_ids)
+    ).all()
+    
+    mentor_lookup = {}
+    for group_id, professor in mentor_data:
+        if group_id not in mentor_lookup:
+            mentor_lookup[group_id] = []
+        mentor_lookup[group_id].append({
+            "id": professor.id,
+            "name": professor.user.name,
+            "email": professor.user.email,
+            "department": professor.department,
+            "research_areas": professor.research_areas
+        })
+    
     result = []
     for group in groups_data:
         group_dict = {
             **group.__dict__,
-            "mentors": [],
+            "mentors": mentor_lookup.get(group.id, []),
             "mentor_count": group.mentor_count or 0
         }
-        
-        # Fetch mentors if group has any
-        if group.has_mentor:
-            mentor_records = db.execute(
-                group_mentors.select().where(group_mentors.c.group_id == group.id)
-            ).fetchall()
-            
-            for record in mentor_records:
-                professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
-                if professor:
-                    group_dict["mentors"].append({
-                        "id": professor.id,
-                        "name": professor.user.name,
-                        "email": professor.user.email,
-                        "department": professor.department,
-                        "research_areas": professor.research_areas
-                    })
-        
         result.append(group_dict)
     
     return result
@@ -129,31 +177,7 @@ def read_group(
     if db_group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Add mentor information
-    group_dict = {
-        **db_group.__dict__,
-        "mentors": [],
-        "mentor_count": db_group.mentor_count or 0
-    }
-    
-    # Fetch mentors if group has any
-    if db_group.has_mentor:
-        mentor_records = db.execute(
-            group_mentors.select().where(group_mentors.c.group_id == group_id)
-        ).fetchall()
-        
-        for record in mentor_records:
-            professor = db.query(Professor).filter(Professor.id == record.professor_id).first()
-            if professor:
-                group_dict["mentors"].append({
-                    "id": professor.id,
-                    "name": professor.user.name,
-                    "email": professor.user.email,
-                    "department": professor.department,
-                    "research_areas": professor.research_areas
-                })
-    
-    return group_dict
+    return enrich_group_with_mentors(db, db_group)
 
 
 @router.get("/{group_id}/members", response_model=List[GroupMember])
@@ -178,7 +202,6 @@ def create_group(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new group - students can only create one group"""
-    # Get current student
     student = db.query(Student).filter(Student.user_id == current_user.id).first()
     if not student:
         raise HTTPException(
@@ -218,13 +241,9 @@ def update_group(
     if db_group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Get current student
-    student = db.query(Student).filter(Student.user_id == current_user.id).first()
-    
-    # Check if current user is the group leader
-    if current_user.role != "admin":
-        if not student or student.id != db_group.leader_id:
-            raise HTTPException(status_code=403, detail="Only the group leader can update the group")
+    # Check authorization
+    if not is_group_leader(db, current_user, db_group):
+        raise HTTPException(status_code=403, detail="Only the group leader can update the group")
     
     return crud_group.update_group(db=db, group_id=group_id, group=group)
 
@@ -239,13 +258,9 @@ def delete_group(
     if db_group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Get current student
-    student = db.query(Student).filter(Student.user_id == current_user.id).first()
-    
-    # Check if current user is the group leader
-    if current_user.role != "admin":
-        if not student or student.id != db_group.leader_id:
-            raise HTTPException(status_code=403, detail="Only the group leader can delete the group")
+    # Check authorization
+    if not is_group_leader(db, current_user, db_group):
+        raise HTTPException(status_code=403, detail="Only the group leader can delete the group")
     
     crud_group.delete_group(db, group_id=group_id)
     return None
@@ -272,22 +287,19 @@ def remove_member_from_group(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Get current student
     current_student = db.query(Student).filter(Student.user_id == current_user.id).first()
     group = crud_group.get_group(db, group_id=group_id)
     
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Allow removal if:
-    # 1. User is removing themselves
-    # 2. User is the group leader
-    # 3. User is admin
-    if current_user.role != "admin":
-        if not current_student:
-            raise HTTPException(status_code=403, detail="Not authorized")
-        if current_student.id != student_id and current_student.id != group.leader_id:
-            raise HTTPException(status_code=403, detail="You can only remove yourself or you must be the group leader")
+    # Allow removal if: user is removing themselves, user is leader, or user is admin
+    if not is_group_leader(db, current_user, group):
+        if not current_student or current_student.id != student_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only remove yourself or you must be the group leader"
+            )
     
     success = crud_group.remove_group_member(db, group_id=group_id, student_id=student_id)
     if not success:
@@ -302,7 +314,7 @@ def create_invitation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if student is already a member of the group
+    # Check if student is already a member
     existing_member = db.query(GroupMemberModel).filter(
         GroupMemberModel.group_id == invitation.group_id,
         GroupMemberModel.student_id == invitation.student_id
@@ -314,11 +326,12 @@ def create_invitation(
             detail="This student is already a member of the group"
         )
     
-    # Check if there's already a pending invitation for this student
-    existing_invitation = db.query(GroupInvitation).filter(
-        GroupInvitation.group_id == invitation.group_id,
-        GroupInvitation.student_id == invitation.student_id,
-        GroupInvitation.status == "pending"
+    # Check for existing pending invitation
+    from app.models.group import GroupInvitation as GroupInvitationModel
+    existing_invitation = db.query(GroupInvitationModel).filter(
+        GroupInvitationModel.group_id == invitation.group_id,
+        GroupInvitationModel.student_id == invitation.student_id,
+        GroupInvitationModel.status == "pending"
     ).first()
     
     if existing_invitation:
@@ -329,11 +342,11 @@ def create_invitation(
     
     result = crud_group.create_invitation(db=db, invitation=invitation)
     
-    # Create notification for invited student
+    # Create notification
     invited_student = db.query(Student).filter(Student.id == invitation.student_id).first()
     if invited_student:
         group = crud_group.get_group(db, invitation.group_id)
-        create_notification(
+        crud_notification.create_notification(
             db,
             NotificationCreate(
                 user_id=invited_student.user_id,
@@ -356,10 +369,9 @@ def read_student_invitations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Get current student
     current_student = db.query(Student).filter(Student.user_id == current_user.id).first()
     
-    # Check if current user is the student or admin
+    # Check authorization
     if current_user.role != "admin":
         if not current_student or current_student.id != student_id:
             raise HTTPException(status_code=403, detail="Not authorized")
@@ -382,14 +394,14 @@ def update_invitation(
     if status == "accepted":
         crud_group.add_group_member(db, group_id=invitation.group_id, student_id=invitation.student_id)
     
-    # Notify group leader about response
+    # Notify group leader
     group = crud_group.get_group(db, invitation.group_id)
     if group:
         leader_student = db.query(Student).filter(Student.id == group.leader_id).first()
         if leader_student:
             student = db.query(Student).filter(Student.id == invitation.student_id).first()
             if student:
-                create_notification(
+                crud_notification.create_notification(
                     db,
                     NotificationCreate(
                         user_id=leader_student.user_id,
@@ -411,16 +423,14 @@ def create_join_request(
     current_user: User = Depends(get_current_user)
 ):
     """Create a request to join a group"""
-    # Verify the student is not already in the group
     group = crud_group.get_group(db, group_id=join_request.group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Check if student is the leader
+    # Validation checks
     if group.leader_id == join_request.student_id:
         raise HTTPException(status_code=400, detail="You are already the leader of this group")
     
-    # Check if already a member
     existing_member = db.query(GroupMemberModel).filter(
         GroupMemberModel.group_id == join_request.group_id,
         GroupMemberModel.student_id == join_request.student_id
@@ -429,7 +439,6 @@ def create_join_request(
     if existing_member:
         raise HTTPException(status_code=400, detail="You are already a member of this group")
     
-    # Check for pending join request
     existing_request = db.query(GroupJoinRequestModel).filter(
         GroupJoinRequestModel.group_id == join_request.group_id,
         GroupJoinRequestModel.student_id == join_request.student_id,
@@ -446,7 +455,7 @@ def create_join_request(
     requesting_student = db.query(Student).filter(Student.id == join_request.student_id).first()
     
     if leader_student and requesting_student:
-        create_notification(
+        crud_notification.create_notification(
             db,
             NotificationCreate(
                 user_id=leader_student.user_id,
@@ -474,11 +483,8 @@ def get_group_join_requests(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Get current student
-    current_student = db.query(Student).filter(Student.user_id == current_user.id).first()
-    
-    # Verify user is the group leader
-    if not current_student or current_student.id != group.leader_id:
+    # Check authorization
+    if not is_group_leader(db, current_user, group):
         raise HTTPException(status_code=403, detail="Only the group leader can view join requests")
     
     return crud_group.get_join_requests_for_group(db, group_id=group_id)
@@ -500,12 +506,12 @@ def update_join_request(
     if status == "accepted":
         crud_group.add_group_member(db, group_id=join_request.group_id, student_id=join_request.student_id)
     
-    # Notify requesting student about the decision
+    # Notify requesting student
     requesting_student = db.query(Student).filter(Student.id == join_request.student_id).first()
     group = crud_group.get_group(db, join_request.group_id)
     
     if requesting_student and group:
-        create_notification(
+        crud_notification.create_notification(
             db,
             NotificationCreate(
                 user_id=requesting_student.user_id,

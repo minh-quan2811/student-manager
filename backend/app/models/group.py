@@ -22,26 +22,27 @@ class Group(Base):
     current_members = Column(Integer, default=1)
     max_members = Column(Integer)
     has_mentor = Column(Boolean, default=False)
-    # mentor_id = Column(Integer, ForeignKey("professors.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    mentors = relationship("Professor", secondary=group_mentors, backref="mentored_groups_new")
-    members = relationship("GroupMember", back_populates="group")
-    mentorship_requests = relationship("MentorshipRequest", back_populates="group")
     mentor_count = Column(Integer, default=0)
+    
+    # Relationships with proper cascade
+    mentors = relationship("Professor", secondary=group_mentors, backref="mentored_groups_new")
+    members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
+    invitations = relationship("GroupInvitation", cascade="all, delete-orphan")
+    join_requests = relationship("GroupJoinRequest", cascade="all, delete-orphan")
+    mentorship_requests = relationship("MentorshipRequest", back_populates="group", cascade="all, delete-orphan")
+    chat_messages = relationship("GroupChatMessage", cascade="all, delete-orphan")
 
 
 class GroupMember(Base):
     __tablename__ = "group_members"
     
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id"))
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"))
     student_id = Column(Integer, ForeignKey("students.id"))
-    role = Column(String)  # 'leader' or 'member'
+    role = Column(String)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
     group = relationship("Group", back_populates="members")
     student = relationship("Student", back_populates="group_memberships")
 
@@ -50,26 +51,23 @@ class GroupInvitation(Base):
     __tablename__ = "group_invitations"
     
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id"))
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"))
     student_id = Column(Integer, ForeignKey("students.id"))
     message = Column(String)
-    status = Column(String, default="pending")  # pending, accepted, rejected
+    status = Column(String, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
-    group = relationship("Group")
     student = relationship("Student")
+
 
 class GroupJoinRequest(Base):
     __tablename__ = "group_join_requests"
     
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id"))
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"))
     student_id = Column(Integer, ForeignKey("students.id"))
     message = Column(String)
-    status = Column(String, default="pending")  # pending, accepted, rejected
+    status = Column(String, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
-    group = relationship("Group")
     student = relationship("Student")

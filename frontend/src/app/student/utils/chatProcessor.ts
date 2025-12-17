@@ -254,9 +254,38 @@ if (lowerMsg.includes('student')) {
 
   return {
     response,
-    students,
-    groups,
-    professors,
+    students: students.map(s => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      gpa: s.gpa,
+      major: s.major,
+      skills: s.skills,
+      bio: s.bio,
+      lookingForGroup: s.lookingForGroup,
+      year: s.year
+    })),
+    groups: groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      leaderId: g.leaderId,
+      leaderName: g.leaderName,
+      description: g.description,
+      neededSkills: g.neededSkills,
+      currentMembers: g.currentMembers,
+      maxMembers: g.maxMembers,
+      hasMentor: g.hasMentor,
+      mentorName: g.mentorName
+    })),
+    professors: professors.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      department: p.department,
+      researchAreas: p.researchAreas,
+      availableSlots: p.availableSlots,
+      totalSlots: p.totalSlots
+    })),
     switchTab
   };
 }
