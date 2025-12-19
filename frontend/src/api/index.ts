@@ -8,3 +8,5 @@ export { groupsApi } from './groups';
 export { notificationsApi } from './notifications';
 export { mentorshipApi } from './mentorship';
 export { chatApi } from './chat';
+export { matchingApi } from './matching';
+export type { MatchingResult, Candidate } from './matching';

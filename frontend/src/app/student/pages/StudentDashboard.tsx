@@ -14,15 +14,16 @@ import ProfessorDetailModal from '../components/ProfessorDetailModal';
 import GroupDetailModal from '../components/GroupDetailModal';
 import ProfessorInviteModal from '../components/ProfessorInviteModal';
 import GroupChatModal from '../components/GroupChatModal';
+import MatchingResultsModal from '../components/MatchingResultsModal';
 import { studentsApi, professorsApi, groupsApi, notificationsApi, mentorshipApi } from '../../../api';
 import type { StudentWithUser, ProfessorWithUser, Group } from '../../../api/types';
 import type { GroupMember } from '../../../api/groups';
 import type { Notification } from '../../../api/notifications';
+import type { MatchingResult } from '../../../api/matching';
 import ProfileEditModal from '../components/ProfileEditModal';
 import { authApi } from '../../../api';
 import { processCommand } from '../utils/chatProcessor';
 import { colors, primaryButton } from '../styles/styles';
-
 
 interface Message {
   role: 'user' | 'assistant';
@@ -47,7 +48,6 @@ export default function StudentDashboard() {
     looking_for_group: boolean;
   } | null>(null);
 
-  // Data states
   const [students, setStudents] = useState<StudentWithUser[]>([]);
   const [professors, setProfessors] = useState<ProfessorWithUser[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -55,13 +55,11 @@ export default function StudentDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Filtered data states
   const [filteredStudents, setFilteredStudents] = useState<StudentWithUser[]>([]);
   const [filteredProfessors, setFilteredProfessors] = useState<ProfessorWithUser[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
   const [filteredGroupsWithMentors, setFilteredGroupsWithMentors] = useState<any[]>([]);
   
-  // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -69,37 +67,34 @@ export default function StudentDashboard() {
   const [isEditingOwnProfile, setIsEditingOwnProfile] = useState(false);
   const [hasGroup, setHasGroup] = useState(false);
 
-  // Group details modal states
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<GroupMember[]>([]);
   const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
 
-  // Modal stack for navigation (returns to previous modal when closing current one)
   const [modalStack, setModalStack] = useState<Array<{ type: 'group' | 'student' | 'professor'; id: number }>>([]);
 
-  // Current student ID
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
   const [groupLeaderNames, setGroupLeaderNames] = useState<Map<number, string>>(new Map());
 
-  // State for professor invite modal
   const [selectedProfessorForInvite, setSelectedProfessorForInvite] = useState<{
     id: number;
     name: string;
   } | null>(null);
 
-  // Chat modal state
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [selectedChatGroup, setSelectedChatGroup] = useState<{
     id: number;
     name: string;
   } | null>(null);
 
+  const [matchingResult, setMatchingResult] = useState<MatchingResult | null>(null);
+  const [showMatchingModal, setShowMatchingModal] = useState(false);
+
   const handleOpenChat = (groupId: number, groupName: string) => {
     setSelectedChatGroup({ id: groupId, name: groupName });
     setIsChatModalOpen(true);
-  };  
+  };
 
-  // Fetch all data on mount
   useEffect(() => {
     fetchAllData();
   }, [user]);
@@ -114,13 +109,11 @@ export default function StudentDashboard() {
         groupsApi.getAll()
       ]);
 
-      // Find current student
       let currentStudent = null;
       if (user) {
         currentStudent = studentsData.find(s => s.user_id === user.id);
         if (currentStudent) {
           setCurrentStudentId(currentStudent.id);
-          // Set current student profile
           setCurrentStudentProfile({
             bio: currentStudent.bio || '',
             skills: currentStudent.skills || [],
@@ -129,10 +122,8 @@ export default function StudentDashboard() {
         }
       }
 
-      // Create a map of student IDs to names
       const studentNameMap = new Map(studentsData.map(s => [s.id, s.name]));
       
-      // Create leader name map
       const leaderMap = new Map<number, string>();
       groupsData.forEach(group => {
         const leaderName = studentNameMap.get(group.leader_id) || 'Unknown Leader';
@@ -140,12 +131,10 @@ export default function StudentDashboard() {
       });
       setGroupLeaderNames(leaderMap);
 
-      // Filter out current student
       const filteredStudentsData = currentStudent 
         ? studentsData.filter(s => s.id !== currentStudent.id)
         : studentsData;
 
-      // Fetch detailed group info including mentors
       const groupsWithMentors = await Promise.all(
         groupsData.map(async (group) => {
           try {
@@ -168,15 +157,12 @@ export default function StudentDashboard() {
       setFilteredGroupsWithMentors(groupsWithMentors);
 
       if (currentStudent) {
-        // Fetch user's groups (where they are a member)
         const myGroupsData = await groupsApi.getMyGroups();
         setMyGroups(myGroupsData);
         
-        // Check if user leads a group
         const leadsGroup = groupsData.some(g => g.leader_id === currentStudent.id);
         setHasGroup(leadsGroup);
 
-        // Fetch notifications
         await fetchNotifications();
       }
     } catch (error) {
@@ -207,10 +193,8 @@ export default function StudentDashboard() {
     try {
       await authApi.updateStudentProfile(updatedProfile);
       
-      // Update local state
       setCurrentStudentProfile(updatedProfile);
       
-      // Refresh students data to reflect changes
       const studentsData = await studentsApi.getAll();
       const currentStudent = studentsData.find(s => s.user_id === user?.id);
       
@@ -297,7 +281,7 @@ export default function StudentDashboard() {
     setChatMessages(newMessages);
   };
 
-const handleStudentInvite = async (studentId: number) => {
+  const handleStudentInvite = async (studentId: number) => {
     if (!currentStudentId || myGroups.length === 0) {
       setChatMessages([
         ...chatMessages,
@@ -344,7 +328,6 @@ const handleStudentInvite = async (studentId: number) => {
 
     const group = groups.find(g => g.id === groupId);
     
-    // Check if user is the leader
     if (group && group.leader_id === currentStudentId) {
       setChatMessages([
         ...chatMessages,
@@ -356,7 +339,6 @@ const handleStudentInvite = async (studentId: number) => {
       return;
     }
 
-    // Check if user is already a member of this group
     const isAlreadyMember = myGroups.some(g => g.id === groupId);
     if (isAlreadyMember) {
       setChatMessages([
@@ -395,11 +377,10 @@ const handleStudentInvite = async (studentId: number) => {
     }
   };
 
-  // Add handler to fetch group members
   const handleViewGroupDetails = async (groupId: number) => {
     setSelectedGroupId(groupId);
     setIsLoadingGroupDetails(true);
-    setModalStack([]); // Reset stack when opening group
+    setModalStack([]);
     
     try {
       const members = await groupsApi.getMembers(groupId);
@@ -420,19 +401,16 @@ const handleStudentInvite = async (studentId: number) => {
   };
 
   const handleGroupMemberClick = (memberId: number) => {
-    // Push current group to stack, then open student detail
     setModalStack([{ type: 'group', id: selectedGroupId || 0 }]);
     setSelectedStudentId(memberId);
   };
 
   const handleGroupMentorClick = (mentorId: number) => {
-    // Push current group to stack, then open professor detail
     setModalStack([{ type: 'group', id: selectedGroupId || 0 }]);
     setSelectedProfessorId(mentorId);
   };
 
   const handleCloseStudentDetail = () => {
-    // If we have a group in the stack, return to it
     if (modalStack.length > 0 && modalStack[0].type === 'group') {
       setSelectedStudentId(null);
       setModalStack([]);
@@ -442,7 +420,6 @@ const handleStudentInvite = async (studentId: number) => {
   };
 
   const handleCloseProfessorDetail = () => {
-    // If we have a group in the stack, return to it
     if (modalStack.length > 0 && modalStack[0].type === 'group') {
       setSelectedProfessorId(null);
       setModalStack([]);
@@ -461,7 +438,6 @@ const handleStudentInvite = async (studentId: number) => {
     }
   };
 
-  // Handler for submitting mentorship request
   const handleSubmitMentorshipRequest = async (groupId: number, message: string) => {
     if (!currentStudentId) {
       throw new Error('Student ID not found');
@@ -606,7 +582,6 @@ const handleStudentInvite = async (studentId: number) => {
                 await notificationsApi.handleGroupJoinRequest(notificationId, action);
               }
               
-              // Remove notification from the list immediately
               setNotifications(notifications.filter(n => n.id !== notificationId));
               setUnreadCount(Math.max(0, unreadCount - 1));
             } catch (error) {
@@ -627,7 +602,6 @@ const handleStudentInvite = async (studentId: number) => {
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
-          {/* Students Tab */}
           {activeTab === 'students' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
               {filteredStudents.map((student) => (
@@ -647,14 +621,13 @@ const handleStudentInvite = async (studentId: number) => {
                   onInvite={handleStudentInvite}
                   onViewProfile={(studentId) => {
                     setSelectedStudentId(studentId);
-                    setModalStack([]); // No stack when opening from dashboard
+                    setModalStack([]);
                   }}
                 />
               ))}
             </div>
           )}
 
-          {/* Groups Tab */}
           {activeTab === 'groups' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
               {filteredGroupsWithMentors.map((group) => {
@@ -683,7 +656,6 @@ const handleStudentInvite = async (studentId: number) => {
             </div>
           )}
 
-          {/* Professors Tab */}
           {activeTab === 'professors' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
               {filteredProfessors.map((prof) => (
@@ -701,14 +673,13 @@ const handleStudentInvite = async (studentId: number) => {
                   onRequestMentorship={handleProfessorMentorshipRequest}
                   onViewProfile={(professorId) => {
                     setSelectedProfessorId(professorId);
-                    setModalStack([]); // No stack when opening from dashboard
+                    setModalStack([]);
                   }}
                 />
               ))}
             </div>
           )}
 
-          {/* My Groups Tab */}
           {activeTab === 'mygroups' && (
             <>
               <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -785,7 +756,14 @@ const handleStudentInvite = async (studentId: number) => {
         </div>
       </div>
 
-      <ChatSidebar messages={chatMessages} onSendMessage={handleSendMessage} />
+      <ChatSidebar 
+        messages={chatMessages} 
+        onSendMessage={handleSendMessage}
+        onMatchingResult={(result) => {
+          setMatchingResult(result);
+          setShowMatchingModal(true);
+        }}
+      />
       
       {!hasGroup && (
         <CreateGroupModal
@@ -795,7 +773,6 @@ const handleStudentInvite = async (studentId: number) => {
         />
       )}
 
-      {/* Profile Detail Modals */}
       <StudentDetailModal
         isOpen={selectedStudentId !== null && !isEditingOwnProfile}
         student={selectedStudentId !== null ? students.find(s => s.id === selectedStudentId) || null : null}
@@ -829,6 +806,16 @@ const handleStudentInvite = async (studentId: number) => {
         professorName={selectedProfessorForInvite?.name || ''}
         myGroups={myGroups.filter(g => g.leader_id === currentStudentId)}
         onSubmit={handleSubmitMentorshipRequest}
+      />
+
+      <MatchingResultsModal
+        isOpen={showMatchingModal}
+        onClose={() => {
+          setShowMatchingModal(false);
+          setMatchingResult(null);
+        }}
+        result={matchingResult}
+        isLoading={false}
       />
     </div>
   );

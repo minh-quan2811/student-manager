@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     
     # CORS
     BACKEND_CORS_ORIGINS: list
+    GOOGLE_API_KEY: str
     
     class Config:
         env_file = ".env"

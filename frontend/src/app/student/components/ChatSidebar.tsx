@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { MessageSquare, Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { matchingApi, type MatchingResult } from '../../../api/matching';
+import { colors } from '../styles/styles';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -9,15 +11,36 @@ interface Message {
 interface ChatSidebarProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
+  onMatchingResult?: (result: MatchingResult) => void;
 }
 
-export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProps) {
+export default function ChatSidebar({ messages, onSendMessage, onMatchingResult }: ChatSidebarProps) {
   const [inputMessage, setInputMessage] = useState('');
+  const [isMatchingLoading, setIsMatchingLoading] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputMessage.trim()) return;
-    onSendMessage(inputMessage);
+    
+    const query = inputMessage.trim();
+    onSendMessage(query);
     setInputMessage('');
+
+    const matchingKeywords = ['find', 'match', 'recommend', 'suggest', 'looking for', 'need', 'want'];
+    const shouldTryMatching = matchingKeywords.some(keyword =>
+      query.toLowerCase().includes(keyword)
+    );
+
+    if (shouldTryMatching && onMatchingResult) {
+      setIsMatchingLoading(true);
+      try {
+        const result = await matchingApi.findBestMatch(query);
+        onMatchingResult(result);
+      } catch (error) {
+        console.error('Matching failed:', error);
+      } finally {
+        setIsMatchingLoading(false);
+      }
+    }
   };
 
   return (
@@ -35,7 +58,7 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
         style={{
           padding: '1.5rem',
           borderBottom: '2px solid #e5e7eb',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: colors.primary.gradient,
           color: 'white'
         }}
       >
@@ -49,11 +72,11 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Sparkles size={22} />
+            <span style={{ fontSize: '1.5rem' }}>A</span>
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 'bold' }}>Research Assistant</h3>
-            <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.9 }}>Ask me to filter results!</p>
+            <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 'bold' }}>AI Assistant</h3>
+            <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.9 }}>Smart Matching</p>
           </div>
         </div>
       </div>
@@ -84,13 +107,13 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
                 borderRadius: '16px',
                 background:
                   msg.role === 'user'
-                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    ? colors.primary.gradient
                     : 'white',
                 color: msg.role === 'user' ? 'white' : '#1f2937',
                 fontSize: '0.875rem',
                 lineHeight: '1.6',
                 boxShadow: msg.role === 'user' 
-                  ? '0 4px 12px rgba(102, 126, 234, 0.3)'
+                  ? `0 4px 12px ${colors.primary.shadow}`
                   : '0 2px 8px rgba(0,0,0,0.08)',
                 border: msg.role === 'assistant' ? '2px solid #e5e7eb' : 'none'
               }}
@@ -99,6 +122,19 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
             </div>
           </div>
         ))}
+        
+        {isMatchingLoading && (
+          <div
+            style={{
+              padding: '1rem',
+              textAlign: 'center',
+              color: '#4b5563',
+              fontSize: '0.875rem'
+            }}
+          >
+            Analyzing candidates with AI...
+          </div>
+        )}
       </div>
 
       <div
@@ -114,7 +150,7 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask me anything..."
+            placeholder="Ask for a match..."
             style={{
               flex: 1,
               padding: '0.875rem 1rem',
@@ -139,7 +175,7 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
             style={{
               padding: '0.875rem 1.125rem',
               background: inputMessage.trim() 
-                ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                ? colors.primary.gradient
                 : '#9ca3af',
               color: 'white',
               border: 'none',
@@ -147,19 +183,19 @@ export default function ChatSidebar({ messages, onSendMessage }: ChatSidebarProp
               cursor: inputMessage.trim() ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
-              boxShadow: inputMessage.trim() ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none',
+              boxShadow: inputMessage.trim() ? `0 4px 12px ${colors.primary.shadow}` : 'none',
               transition: 'all 0.3s ease'
             }}
             onMouseEnter={(e) => {
               if (inputMessage.trim()) {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary.shadowHover}`;
               }
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = inputMessage.trim() 
-                ? '0 4px 12px rgba(102, 126, 234, 0.3)'
+                ? `0 4px 12px ${colors.primary.shadow}`
                 : 'none';
             }}
           >
